@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Erro {{ error_code }} - Article Summarizer Agent{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="text-center py-5">
+            <!-- Error Icon -->
+            <div class="mb-4">
+                {% if error_code == 404 %}
+                <i class="bi bi-exclamation-triangle display-1 text-warning"></i>
+                {% else %}
+                <i class="bi bi-x-circle display-1 text-danger"></i>
+                {% endif %}
+            </div>
+            
+            <!-- Error Code -->
+            <h1 class="display-3 fw-bold text-gradient">{{ error_code }}</h1>
+            
+            <!-- Error Message -->
+            <h3 class="text-muted mb-4">
+                {% if error_code == 404 %}
+                Página não encontrada
+                {% elif error_code == 500 %}
+                Erro interno do servidor
+                {% else %}
+                Algo deu errado
+                {% endif %}
+            </h3>
+            
+            <!-- Error Description -->
+            <p class="lead text-muted mb-4">
+                {% if error_code == 404 %}
+                A página que você está procurando não existe ou foi movida.
+                {% elif error_code == 500 %}
+                Ocorreu um erro interno no servidor. Nossa equipe foi notificada.
+                {% else %}
+                {{ error_message }}
+                {% endif %}
+            </p>
+            
+            <!-- Action Buttons -->
+            <div class="d-flex justify-content-center gap-3">
+                <a href="{{ url_for('index') }}" class="btn btn-primary">
+                    <i class="bi bi-house-door"></i> Voltar ao Início
+                </a>
+                
+                <button onclick="history.back()" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Página Anterior
+                </button>
+                
+                {% if error_code == 500 %}
+                <button onclick="location.reload()" class="btn btn-outline-info">
+                    <i class="bi bi-arrow-clockwise"></i> Tentar Novamente
+                </button>
+                {% endif %}
+            </div>
+            
+            <!-- Additional Help -->
+            <div class="mt-5">
+                <h5 class="text-muted">Precisa de ajuda?</h5>
+                <p class="text-muted">
+                    Se o problema persistir, entre em contato conosco ou verifique nossa 
+                    <a href="{{ url_for('about') }}" class="text-decoration-none">página sobre</a> 
+                    para mais informações.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Error Details (only in debug mode) -->
+{% if config.DEBUG %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-bug"></i> Detalhes do Erro (Modo Debug)
+                </h6>
+            </div>
+            <div class="card-body">
+                <p><strong>Código:</strong> {{ error_code }}</p>
+                <p><strong>Mensagem:</strong> {{ error_message }}</p>
+                <p><strong>Timestamp:</strong> {{ moment().format('YYYY-MM-DD HH:mm:ss') }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block head %}
+<style>
+.text-gradient {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.btn {
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+</style>
+{% endblock %} 

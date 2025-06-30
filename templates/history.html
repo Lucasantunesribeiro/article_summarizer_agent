@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Histórico - Article Summarizer Agent{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2 class="text-primary">
+                <i class="bi bi-clock-history"></i>
+                Histórico de Tarefas
+            </h2>
+            <div>
+                <button onclick="clearHistory()" class="btn btn-outline-danger">
+                    <i class="bi bi-trash"></i> Limpar Histórico
+                </button>
+                <a href="{{ url_for('index') }}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Nova Sumarização
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if tasks %}
+<div class="row">
+    {% for task in tasks %}
+    <div class="col-12 mb-4">
+        <div class="card shadow border-0">
+            <div class="card-header bg-{{ 'success' if task.status == 'completed' else 'danger' if task.status == 'failed' else 'warning' }} text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-{{ 'check-circle' if task.status == 'completed' else 'x-circle' if task.status == 'failed' else 'hourglass-split' }}"></i>
+                        Tarefa {{ task.task_id[:8] }}...
+                    </h5>
+                    <small>{{ task.started_at }}</small>
+                </div>
+            </div>
+            
+            <div class="card-body">
+                {% if task.status == 'completed' and task.result %}
+                <div class="row">
+                    <div class="col-md-8">
+                        <h6 class="text-primary">Resumo:</h6>
+                        <p class="text-muted">
+                            {{ task.result.summary[:200] }}{% if task.result.summary|length > 200 %}...{% endif %}
+                        </p>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <h6 class="text-info">Estatísticas:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Método:</strong> {{ task.result.method_used }}</li>
+                            <li><strong>Tempo:</strong> {{ "%.1f"|format(task.result.execution_time) }}s</li>
+                            {% if task.result.statistics %}
+                            <li><strong>Palavras:</strong> {{ task.result.statistics.words_summary }}/{{ task.result.statistics.words_original }}</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+                
+                {% if task.result.files_created %}
+                <div class="mt-3">
+                    <h6 class="text-success">Downloads Disponíveis:</h6>
+                    <div class="d-flex gap-2">
+                        {% for format, file_path in task.result.files_created.items() %}
+                        <a href="/api/download/{{ task.task_id }}/{{ format }}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-download"></i> {{ format.upper() }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% elif task.status == 'failed' %}
+                <div class="alert alert-danger" role="alert">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Falha no processamento:</strong> {{ task.message }}
+                </div>
+                
+                {% else %}
+                <div class="alert alert-warning" role="alert">
+                    <i class="bi bi-hourglass-split"></i>
+                    <strong>Status:</strong> {{ task.message }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination (future enhancement) -->
+<div class="row mt-4">
+    <div class="col-12 text-center">
+        <small class="text-muted">Mostrando {{ tasks|length }} tarefas mais recentes</small>
+    </div>
+</div>
+
+{% else %}
+<div class="row">
+    <div class="col-12">
+        <div class="text-center py-5">
+            <i class="bi bi-inbox display-1 text-muted"></i>
+            <h3 class="text-muted mt-3">Nenhuma tarefa encontrada</h3>
+            <p class="text-muted">Você ainda não processou nenhum artigo.</p>
+            <a href="{{ url_for('index') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Criar Primeira Sumarização
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function clearHistory() {
+    if (confirm('Tem certeza que deseja limpar todo o histórico?')) {
+        // This would need backend implementation
+        showAlert('<i class="bi bi-info-circle"></i> Funcionalidade em desenvolvimento', 'info');
+    }
+}
+</script>
+{% endblock %} 

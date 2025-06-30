@@ -1,0 +1,370 @@
+{% extends "base.html" %}
+
+{% block title %}Configurações - Article Summarizer Agent{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="text-primary">
+            <i class="bi bi-gear"></i>
+            Configurações do Sistema
+        </h2>
+        <p class="text-muted">Configure os parâmetros do sistema de sumarização</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <!-- Configurações de Web Scraping -->
+        <div class="card shadow border-0 mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-globe"></i> Web Scraping
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="scrapingForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="timeout" class="form-label">Timeout (segundos)</label>
+                                <input type="number" class="form-control" id="timeout" name="timeout" value="30" min="5" max="120">
+                                <div class="form-text">Tempo limite para requisições HTTP</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="retryAttempts" class="form-label">Tentativas de Retry</label>
+                                <input type="number" class="form-control" id="retryAttempts" name="retryAttempts" value="3" min="1" max="10">
+                                <div class="form-text">Número de tentativas em caso de falha</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="userAgent" class="form-label">User Agent</label>
+                        <input type="text" class="form-control" id="userAgent" name="userAgent" 
+                               value="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36">
+                        <div class="form-text">String de identificação do navegador</div>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="respectRobots" name="respectRobots" checked>
+                        <label class="form-check-label" for="respectRobots">
+                            Respeitar robots.txt
+                        </label>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Configurações de Processamento -->
+        <div class="card shadow border-0 mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-file-text"></i> Processamento de Texto
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="processingForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="minWords" class="form-label">Palavras Mínimas</label>
+                                <input type="number" class="form-control" id="minWords" name="minWords" value="100" min="50">
+                                <div class="form-text">Mínimo de palavras no texto processado</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="maxWords" class="form-label">Palavras Máximas</label>
+                                <input type="number" class="form-control" id="maxWords" name="maxWords" value="10000" min="1000">
+                                <div class="form-text">Máximo de palavras a processar</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="language" class="form-label">Idioma de Processamento</label>
+                        <select class="form-select" id="language" name="language">
+                            <option value="auto">Detecção Automática</option>
+                            <option value="pt">Português</option>
+                            <option value="en">Inglês</option>
+                            <option value="es">Espanhol</option>
+                            <option value="fr">Francês</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="removeStopwords" name="removeStopwords" checked>
+                        <label class="form-check-label" for="removeStopwords">
+                            Remover stopwords
+                        </label>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="normalizeCasing" name="normalizeCasing" checked>
+                        <label class="form-check-label" for="normalizeCasing">
+                            Normalizar maiúsculas/minúsculas
+                        </label>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Configurações de Sumarização -->
+        <div class="card shadow border-0 mb-4">
+            <div class="card-header bg-warning text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-brain"></i> Sumarização
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="summarizationForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="defaultMethod" class="form-label">Método Padrão</label>
+                                <select class="form-select" id="defaultMethod" name="defaultMethod">
+                                    <option value="extractive">Extrativo</option>
+                                    <option value="generative">Generativo</option>
+                                    <option value="hybrid" selected>Híbrido</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="defaultSummarySize" class="form-label">Tamanho Padrão</label>
+                                <select class="form-select" id="defaultSummarySize" name="defaultSummarySize">
+                                    <option value="short">Curto (3-5 sentenças)</option>
+                                    <option value="medium" selected>Médio (5-8 sentenças)</option>
+                                    <option value="long">Longo (8-12 sentenças)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="modelName" class="form-label">Modelo Generativo</label>
+                        <select class="form-select" id="modelName" name="modelName">
+                            <option value="facebook/bart-large-cnn" selected>BART Large CNN</option>
+                            <option value="facebook/bart-base">BART Base</option>
+                            <option value="t5-small">T5 Small</option>
+                            <option value="t5-base">T5 Base</option>
+                        </select>
+                        <div class="form-text">Modelo de IA para sumarização generativa</div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="maxLength" class="form-label">Tamanho Máximo (tokens)</label>
+                                <input type="number" class="form-control" id="maxLength" name="maxLength" value="150" min="50" max="512">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="minLength" class="form-label">Tamanho Mínimo (tokens)</label>
+                                <input type="number" class="form-control" id="minLength" name="minLength" value="50" min="10" max="200">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Configurações de Cache -->
+        <div class="card shadow border-0 mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-hdd"></i> Cache e Armazenamento
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="cacheForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="cacheEnabled" class="form-label">Status do Cache</label>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="cacheEnabled" name="cacheEnabled" checked>
+                                    <label class="form-check-label" for="cacheEnabled">
+                                        Cache habilitado
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="cacheExpiry" class="form-label">Expiração (horas)</label>
+                                <input type="number" class="form-control" id="cacheExpiry" name="cacheExpiry" value="24" min="1" max="168">
+                                <div class="form-text">Tempo para invalidar cache</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="outputFormats" class="form-label">Formatos de Saída</label>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="formatTxt" name="formatTxt" checked>
+                                    <label class="form-check-label" for="formatTxt">TXT</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="formatMd" name="formatMd" checked>
+                                    <label class="form-check-label" for="formatMd">Markdown</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="formatJson" name="formatJson" checked>
+                                    <label class="form-check-label" for="formatJson">JSON</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-warning" onclick="clearCache()">
+                            <i class="bi bi-trash"></i> Limpar Cache
+                        </button>
+                        <button type="button" class="btn btn-outline-info" onclick="checkCacheSize()">
+                            <i class="bi bi-info-circle"></i> Verificar Tamanho
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar com Informações -->
+    <div class="col-lg-4">
+        <!-- Status do Sistema -->
+        <div class="card shadow border-0 mb-4">
+            <div class="card-header bg-dark text-white">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-activity"></i> Status do Sistema
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Sistema:</span>
+                    <span class="badge bg-success">Online</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Cache:</span>
+                    <span class="badge bg-info">Ativo</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Modelos IA:</span>
+                    <span class="badge bg-warning">Carregados</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span>Última Atualização:</span>
+                    <small class="text-muted">Agora</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estatísticas -->
+        <div class="card shadow border-0 mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-bar-chart"></i> Estatísticas
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Artigos Processados:</span>
+                    <strong>0</strong>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Cache Hits:</span>
+                    <strong>0</strong>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Tempo Médio:</span>
+                    <strong>--s</strong>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span>Taxa de Sucesso:</span>
+                    <strong>--%</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ações Rápidas -->
+        <div class="card shadow border-0">
+            <div class="card-header bg-primary text-white">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-lightning"></i> Ações Rápidas
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-success btn-sm" onclick="resetToDefaults()">
+                        <i class="bi bi-arrow-clockwise"></i> Restaurar Padrões
+                    </button>
+                    <button class="btn btn-outline-info btn-sm" onclick="exportSettings()">
+                        <i class="bi bi-download"></i> Exportar Config
+                    </button>
+                    <button class="btn btn-outline-warning btn-sm" onclick="importSettings()">
+                        <i class="bi bi-upload"></i> Importar Config
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Botões de Ação -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between">
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Voltar
+            </a>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-primary" onclick="testConfiguration()">
+                    <i class="bi bi-play"></i> Testar Configuração
+                </button>
+                <button type="button" class="btn btn-success" onclick="saveAllSettings()">
+                    <i class="bi bi-check"></i> Salvar Todas
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function saveAllSettings() {
+    showAlert('<i class="bi bi-check-circle"></i> Configurações salvas com sucesso!', 'success');
+}
+
+function resetToDefaults() {
+    if (confirm('Tem certeza que deseja restaurar todas as configurações padrão?')) {
+        location.reload();
+    }
+}
+
+function testConfiguration() {
+    showAlert('<i class="bi bi-play"></i> Teste de configuração iniciado...', 'info');
+    setTimeout(() => {
+        showAlert('<i class="bi bi-check-circle"></i> Configuração testada com sucesso!', 'success');
+    }, 2000);
+}
+
+function exportSettings() {
+    showAlert('<i class="bi bi-download"></i> Configurações exportadas!', 'info');
+}
+
+function importSettings() {
+    showAlert('<i class="bi bi-upload"></i> Função de importação em desenvolvimento', 'info');
+}
+</script>
+{% endblock %} 

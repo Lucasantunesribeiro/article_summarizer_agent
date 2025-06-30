@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+
+{% block title %}Sobre - Article Summarizer Agent{% endblock %}
+
+{% block content %}
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="hero-banner bg-gradient-info text-white rounded-3 p-5 text-center">
+            <h1 class="display-5 fw-bold mb-3">
+                <i class="bi bi-info-circle"></i>
+                Sobre o Article Summarizer Agent
+            </h1>
+            <p class="lead">
+                Uma solução completa de IA para sumarização automática de artigos web
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <!-- Visão Geral -->
+        <div class="card shadow border-0 mb-4">
+            <div class="card-body p-4">
+                <h3 class="text-primary mb-3">
+                    <i class="bi bi-eye"></i> Visão Geral
+                </h3>
+                <p class="lead">
+                    O Article Summarizer Agent é um sistema autônomo de inteligência artificial 
+                    que processa artigos web e gera resumos inteligentes usando técnicas 
+                    avançadas de processamento de linguagem natural.
+                </p>
+                <p>
+                    Nossa solução combina métodos extrativos e generativos para criar resumos 
+                    de alta qualidade, preservando as informações mais importantes do texto original.
+                </p>
+            </div>
+        </div>
+
+        <!-- Características -->
+        <div class="card shadow border-0 mb-4">
+            <div class="card-body p-4">
+                <h3 class="text-success mb-3">
+                    <i class="bi bi-gear"></i> Características Técnicas
+                </h3>
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul class="list-unstyled">
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle text-success"></i>
+                                <strong>Web Scraping Inteligente:</strong> Extração robusta de conteúdo
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle text-success"></i>
+                                <strong>Processamento de Texto:</strong> Limpeza e normalização avançada
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle text-success"></i>
+                                <strong>Detecção de Idioma:</strong> Suporte multilíngue automático
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <ul class="list-unstyled">
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle text-success"></i>
+                                <strong>IA Híbrida:</strong> Métodos extrativos e generativos
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle text-success"></i>
+                                <strong>Cache Inteligente:</strong> Evita reprocessamento desnecessário
+                            </li>
+                            <li class="mb-2">
+                                <i class="bi bi-check-circle text-success"></i>
+                                <strong>Múltiplos Formatos:</strong> TXT, Markdown e JSON
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Métodos de Sumarização -->
+        <div class="card shadow border-0 mb-4">
+            <div class="card-body p-4">
+                <h3 class="text-warning mb-3">
+                    <i class="bi bi-brain"></i> Métodos de Sumarização
+                </h3>
+                
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="text-center p-3 bg-light rounded">
+                            <i class="bi bi-lightning-charge display-4 text-primary"></i>
+                            <h5 class="mt-2">Extrativo</h5>
+                            <p class="text-muted small">
+                                Seleciona as sentenças mais importantes do texto original usando TF-IDF e técnicas de ranking.
+                            </p>
+                            <span class="badge bg-primary">Rápido</span>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <div class="text-center p-3 bg-light rounded">
+                            <i class="bi bi-cpu display-4 text-success"></i>
+                            <h5 class="mt-2">Generativo</h5>
+                            <p class="text-muted small">
+                                Utiliza modelos de linguagem avançados (como BART) para gerar resumos únicos.
+                            </p>
+                            <span class="badge bg-success">Qualidade</span>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <div class="text-center p-3 bg-light rounded">
+                            <i class="bi bi-gear-wide-connected display-4 text-info"></i>
+                            <h5 class="mt-2">Híbrido</h5>
+                            <p class="text-muted small">
+                                Combina extração e geração para obter o melhor dos dois métodos.
+                            </p>
+                            <span class="badge bg-info">Balanceado</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pipeline de Processamento -->
+        <div class="card shadow border-0 mb-4">
+            <div class="card-body p-4">
+                <h3 class="text-info mb-3">
+                    <i class="bi bi-diagram-3"></i> Pipeline de Processamento
+                </h3>
+                
+                <div class="row text-center">
+                    <div class="col">
+                        <div class="pipeline-step">
+                            <div class="step-number">1</div>
+                            <i class="bi bi-check-square step-icon"></i>
+                            <h6>Validação</h6>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="pipeline-arrow">→</div>
+                    </div>
+                    <div class="col">
+                        <div class="pipeline-step">
+                            <div class="step-number">2</div>
+                            <i class="bi bi-globe step-icon"></i>
+                            <h6>Scraping</h6>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="pipeline-arrow">→</div>
+                    </div>
+                    <div class="col">
+                        <div class="pipeline-step">
+                            <div class="step-number">3</div>
+                            <i class="bi bi-file-text step-icon"></i>
+                            <h6>Processamento</h6>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="pipeline-arrow">→</div>
+                    </div>
+                    <div class="col">
+                        <div class="pipeline-step">
+                            <div class="step-number">4</div>
+                            <i class="bi bi-brain step-icon"></i>
+                            <h6>Sumarização</h6>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="pipeline-arrow">→</div>
+                    </div>
+                    <div class="col">
+                        <div class="pipeline-step">
+                            <div class="step-number">5</div>
+                            <i class="bi bi-save step-icon"></i>
+                            <h6>Salvamento</h6>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tecnologias -->
+        <div class="card shadow border-0 mb-4">
+            <div class="card-body p-4">
+                <h3 class="text-danger mb-3">
+                    <i class="bi bi-tools"></i> Tecnologias Utilizadas
+                </h3>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Backend</h5>
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            <span class="badge bg-primary">Python 3.8+</span>
+                            <span class="badge bg-success">Flask</span>
+                            <span class="badge bg-info">NLTK</span>
+                            <span class="badge bg-warning">scikit-learn</span>
+                            <span class="badge bg-danger">Transformers</span>
+                        </div>
+                        
+                        <h5>Processamento</h5>
+                        <div class="d-flex flex-wrap gap-2">
+                            <span class="badge bg-secondary">BeautifulSoup</span>
+                            <span class="badge bg-dark">Requests</span>
+                            <span class="badge bg-primary">PyTorch</span>
+                            <span class="badge bg-info">langdetect</span>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h5>Frontend</h5>
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            <span class="badge bg-primary">Bootstrap 5</span>
+                            <span class="badge bg-warning">JavaScript</span>
+                            <span class="badge bg-info">Jinja2</span>
+                            <span class="badge bg-success">CSS3</span>
+                        </div>
+                        
+                        <h5>Modelos IA</h5>
+                        <div class="d-flex flex-wrap gap-2">
+                            <span class="badge bg-danger">BART</span>
+                            <span class="badge bg-warning">TF-IDF</span>
+                            <span class="badge bg-info">BERT</span>
+                            <span class="badge bg-secondary">Transformers</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Informações de Versão -->
+        <div class="card shadow border-0 mb-4">
+            <div class="card-body p-4 text-center">
+                <h4 class="text-muted mb-3">
+                    <i class="bi bi-info-circle"></i> Informações da Versão
+                </h4>
+                <p><strong>Versão:</strong> 2.0.0</p>
+                <p><strong>Data de Lançamento:</strong> 2024</p>
+                <p><strong>Licença:</strong> MIT</p>
+                <p><strong>Desenvolvido com:</strong> ❤️ para a comunidade de IA e NLP</p>
+                
+                <div class="mt-4">
+                    <a href="{{ url_for('index') }}" class="btn btn-primary">
+                        <i class="bi bi-arrow-left"></i> Voltar ao Início
+                    </a>
+                    <a href="https://github.com" class="btn btn-outline-dark">
+                        <i class="bi bi-github"></i> Ver no GitHub
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block head %}
+<style>
+.pipeline-step {
+    position: relative;
+    margin: 1rem 0;
+}
+
+.step-number {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bs-primary);
+    color: white;
+    border-radius: 50%;
+    width: 25px;
+    height: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.step-icon {
+    font-size: 2rem;
+    color: var(--bs-primary);
+    margin-bottom: 0.5rem;
+}
+
+.pipeline-arrow {
+    font-size: 1.5rem;
+    color: var(--bs-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100px;
+}
+</style>
+{% endblock %} 

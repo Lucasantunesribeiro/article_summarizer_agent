@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtualenv
+.venv/
+venv/
+ENV/
+env/
+
+# VSCode
+.vscode/
+
+# PyCharm
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
+
+# Cache
+.cache/
+*.cache
+
+# Outputs
+outputs/
+
+# Configurações locais
+*.local.json
+*.env
+.env.*
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Arquivos temporários
+*.tmp
+*.bak
+*.swp
+
+# Testes
+selenium_test.log
+summarizer.log
+
+# Arquivos de pacotes
+*.pkl
+*.h5
+*.db
+
+# Outros
+*.sqlite3
+
+# Node/npm (caso use para frontend)
+node_modules/
+
+# Arquivos de deploy
+Procfile
+runtime.txt 

@@ -1,0 +1,493 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Article Summarizer Agent{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="hero-banner bg-gradient-primary text-white rounded-3 p-5 text-center">
+            <h1 class="display-4 fw-bold mb-3">
+                <i class="bi bi-robot"></i>
+                Article Summarizer Agent
+            </h1>
+            <p class="lead mb-4">
+                Transforme qualquer artigo web em um resumo inteligente com IA
+            </p>
+            <div class="d-flex justify-content-center gap-3">
+                <span class="badge bg-light text-dark px-3 py-2">
+                    <i class="bi bi-lightning-charge"></i> Rápido
+                </span>
+                <span class="badge bg-light text-dark px-3 py-2">
+                    <i class="bi bi-brain"></i> Inteligente
+                </span>
+                <span class="badge bg-light text-dark px-3 py-2">
+                    <i class="bi bi-download"></i> Múltiplos Formatos
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Form -->
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card shadow-lg border-0">
+            <div class="card-header bg-white border-0 pt-4">
+                <h3 class="card-title text-center mb-0">
+                    <i class="bi bi-link-45deg text-primary"></i>
+                    Insira a URL do Artigo
+                </h3>
+            </div>
+            
+            <div class="card-body p-4">
+                <form id="summarizeForm">
+                    <!-- URL Input -->
+                    <div class="mb-4">
+                        <label for="articleUrl" class="form-label fw-bold">
+                            <i class="bi bi-globe"></i> URL do Artigo
+                        </label>
+                        <div class="input-group input-group-lg">
+                            <span class="input-group-text">
+                                <i class="bi bi-link"></i>
+                            </span>
+                            <input 
+                                type="url" 
+                                class="form-control" 
+                                id="articleUrl" 
+                                placeholder="https://exemplo.com/artigo" 
+                                required
+                            >
+                        </div>
+                        <div class="form-text">
+                            Cole aqui a URL completa do artigo que deseja resumir
+                        </div>
+                    </div>
+
+                    <!-- Configuration Row -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label for="method" class="form-label fw-bold">
+                                <i class="bi bi-gear"></i> Método de Sumarização
+                            </label>
+                            <select class="form-select" id="method">
+                                <option value="extractive" selected>
+                                    Extrativo (Rápido)
+                                </option>
+                                <option value="generative">
+                                    Generativo (IA)
+                                </option>
+                                <option value="hybrid">
+                                    Híbrido (Melhor Qualidade)
+                                </option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="length" class="form-label fw-bold">
+                                <i class="bi bi-rulers"></i> Tamanho do Resumo
+                            </label>
+                            <select class="form-select" id="length">
+                                <option value="short">
+                                    Curto (3 sentenças)
+                                </option>
+                                <option value="medium" selected>
+                                    Médio (5 sentenças)
+                                </option>
+                                <option value="long">
+                                    Longo (8 sentenças)
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                            <i class="bi bi-play-circle"></i>
+                            Gerar Resumo
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Section (Hidden by default) -->
+<div id="progressSection" class="row mt-4" style="display: none;">
+    <div class="col-lg-8 mx-auto">
+        <div class="card shadow border-0">
+            <div class="card-body p-4">
+                <h5 class="card-title mb-3">
+                    <i class="bi bi-hourglass-split text-primary"></i>
+                    Processando Artigo
+                </h5>
+                
+                <div class="progress mb-3" style="height: 20px;">
+                    <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                         role="progressbar" style="width: 0%">
+                        0%
+                    </div>
+                </div>
+                
+                <div id="progressMessage" class="text-muted">
+                    Iniciando processamento...
+                </div>
+                
+                <div class="mt-3">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle"></i>
+                        Este processo pode levar alguns minutos dependendo do tamanho do artigo
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Results Section (Hidden by default) -->
+<div id="resultsSection" class="row mt-4" style="display: none;">
+    <div class="col-12">
+        <div class="card shadow border-0">
+            <div class="card-header bg-success text-white">
+                <h4 class="card-title mb-0">
+                    <i class="bi bi-check-circle"></i>
+                    Resumo Gerado com Sucesso!
+                </h4>
+            </div>
+            
+            <div class="card-body p-4">
+                <!-- Summary Preview -->
+                <div class="mb-4">
+                    <h5 class="text-primary">
+                        <i class="bi bi-file-text"></i> Resumo
+                    </h5>
+                    <div id="summaryText" class="bg-light p-4 rounded border-start border-primary border-4">
+                        <!-- Summary will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Statistics -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="stat-card text-center p-3 bg-primary text-white rounded">
+                            <i class="bi bi-file-word display-6"></i>
+                            <div class="mt-2">
+                                <div id="originalWords" class="h4 mb-0">-</div>
+                                <small>Palavras Originais</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card text-center p-3 bg-success text-white rounded">
+                            <i class="bi bi-file-earmark-text display-6"></i>
+                            <div class="mt-2">
+                                <div id="summaryWords" class="h4 mb-0">-</div>
+                                <small>Palavras Resumo</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card text-center p-3 bg-info text-white rounded">
+                            <i class="bi bi-percent display-6"></i>
+                            <div class="mt-2">
+                                <div id="compressionRatio" class="h4 mb-0">-</div>
+                                <small>Taxa Compressão</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card text-center p-3 bg-warning text-white rounded">
+                            <i class="bi bi-stopwatch display-6"></i>
+                            <div class="mt-2">
+                                <div id="executionTime" class="h4 mb-0">-</div>
+                                <small>Tempo Execução</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Download Buttons -->
+                <div class="d-flex flex-wrap gap-2 justify-content-center">
+                    <button id="downloadTxt" class="btn btn-outline-primary">
+                        <i class="bi bi-file-text"></i> Download TXT
+                    </button>
+                    <button id="downloadMd" class="btn btn-outline-success">
+                        <i class="bi bi-file-earmark-richtext"></i> Download Markdown
+                    </button>
+                    <button id="downloadJson" class="btn btn-outline-info">
+                        <i class="bi bi-file-earmark-code"></i> Download JSON
+                    </button>
+                    <button onclick="startNewSummarization()" class="btn btn-secondary">
+                        <i class="bi bi-arrow-clockwise"></i> Novo Resumo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Examples -->
+<div class="row mt-5">
+    <div class="col-12">
+        <div class="card border-0 bg-light">
+            <div class="card-body p-4">
+                <h5 class="card-title text-center mb-4">
+                    <i class="bi bi-lightbulb text-warning"></i>
+                    Exemplos de URLs para Testar
+                </h5>
+                
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="example-card p-3 bg-white rounded border h-100">
+                            <h6 class="text-primary">
+                                <i class="bi bi-newspaper"></i> Notícias
+                            </h6>
+                            <small class="text-muted">
+                                Artigos de jornais e sites de notícias
+                            </small>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="example-card p-3 bg-white rounded border h-100">
+                            <h6 class="text-success">
+                                <i class="bi bi-journal-bookmark"></i> Artigos Técnicos
+                            </h6>
+                            <small class="text-muted">
+                                Blogs técnicos e artigos científicos
+                            </small>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="example-card p-3 bg-white rounded border h-100">
+                            <h6 class="text-info">
+                                <i class="bi bi-book"></i> Documentação
+                            </h6>
+                            <small class="text-muted">
+                                Manuais e guias online
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentTaskId = null;
+let pollInterval = null;
+
+// Form submission handler
+document.getElementById('summarizeForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const url = document.getElementById('articleUrl').value.trim();
+    const method = document.getElementById('method').value;
+    const length = document.getElementById('length').value;
+    
+    if (!url) {
+        showAlert('<i class="bi bi-exclamation-triangle"></i> Por favor, insira uma URL válida', 'warning');
+        return;
+    }
+    
+    // Show progress section
+    document.getElementById('progressSection').style.display = 'block';
+    document.getElementById('resultsSection').style.display = 'none';
+    
+    // Disable form
+    document.getElementById('submitBtn').disabled = true;
+    document.getElementById('submitBtn').innerHTML = '<i class="bi bi-hourglass-split"></i> Processando...';
+    
+    try {
+        const response = await fetch('/api/summarize', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                url: url,
+                method: method,
+                length: length
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            currentTaskId = data.task_id;
+            startPolling();
+            showAlert('<i class="bi bi-check-circle"></i> Processamento iniciado!', 'success');
+        } else {
+            throw new Error(data.error || 'Erro desconhecido');
+        }
+        
+    } catch (error) {
+        showAlert('<i class="bi bi-exclamation-triangle"></i> Erro: ' + error.message, 'danger');
+        resetForm();
+    }
+});
+
+// Start polling for task status
+function startPolling() {
+    if (pollInterval) clearInterval(pollInterval);
+    
+    pollInterval = setInterval(async () => {
+        try {
+            const response = await fetch(`/api/task/${currentTaskId}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                const task = data.task;
+                updateProgress(task.progress, task.message);
+                
+                if (task.status === 'completed') {
+                    clearInterval(pollInterval);
+                    showResults(task.result);
+                } else if (task.status === 'failed') {
+                    clearInterval(pollInterval);
+                    showAlert('<i class="bi bi-exclamation-triangle"></i> Falha no processamento: ' + task.message, 'danger');
+                    resetForm();
+                }
+            }
+        } catch (error) {
+            clearInterval(pollInterval);
+            showAlert('<i class="bi bi-exclamation-triangle"></i> Erro ao verificar status: ' + error.message, 'danger');
+            resetForm();
+        }
+    }, 2000); // Poll every 2 seconds
+}
+
+// Update progress bar
+function updateProgress(progress, message) {
+    const progressBar = document.getElementById('progressBar');
+    const progressMessage = document.getElementById('progressMessage');
+    
+    progressBar.style.width = progress + '%';
+    progressBar.textContent = progress + '%';
+    progressMessage.textContent = message;
+    
+    // Update progress bar color based on progress
+    progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
+    if (progress >= 100) {
+        progressBar.classList.add('bg-success');
+    } else if (progress >= 50) {
+        progressBar.classList.add('bg-info');
+    } else {
+        progressBar.classList.add('bg-primary');
+    }
+}
+
+// Show results
+function showResults(result) {
+    document.getElementById('progressSection').style.display = 'none';
+    document.getElementById('resultsSection').style.display = 'block';
+    
+    // Update summary
+    document.getElementById('summaryText').textContent = result.summary;
+    
+    // Update statistics
+    const stats = result.statistics;
+    document.getElementById('originalWords').textContent = formatNumber(stats.words_original || 0);
+    document.getElementById('summaryWords').textContent = formatNumber(stats.words_summary || 0);
+    document.getElementById('compressionRatio').textContent = 
+        (stats.compression_ratio * 100).toFixed(1) + '%';
+    document.getElementById('executionTime').textContent = 
+        formatTime(result.execution_time || 0);
+    
+    // Setup download buttons
+    setupDownloadButtons(result.files_created);
+    
+    // Scroll to results
+    document.getElementById('resultsSection').scrollIntoView({ 
+        behavior: 'smooth' 
+    });
+}
+
+// Setup download buttons
+function setupDownloadButtons(files) {
+    const downloadTxt = document.getElementById('downloadTxt');
+    const downloadMd = document.getElementById('downloadMd');
+    const downloadJson = document.getElementById('downloadJson');
+    
+    if (files.txt) {
+        downloadTxt.onclick = () => downloadFile('txt');
+        downloadTxt.disabled = false;
+    } else {
+        downloadTxt.disabled = true;
+    }
+    
+    if (files.md) {
+        downloadMd.onclick = () => downloadFile('md');
+        downloadMd.disabled = false;
+    } else {
+        downloadMd.disabled = true;
+    }
+    
+    if (files.json) {
+        downloadJson.onclick = () => downloadFile('json');
+        downloadJson.disabled = false;
+    } else {
+        downloadJson.disabled = true;
+    }
+}
+
+// Download file
+async function downloadFile(format) {
+    try {
+        const response = await fetch(`/api/download/${currentTaskId}/${format}`);
+        
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `summary_${currentTaskId}.${format}`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            showAlert(`<i class="bi bi-download"></i> Download do arquivo ${format.toUpperCase()} iniciado!`, 'success');
+        } else {
+            throw new Error('Erro ao fazer download');
+        }
+    } catch (error) {
+        showAlert('<i class="bi bi-exclamation-triangle"></i> Erro no download: ' + error.message, 'danger');
+    }
+}
+
+// Reset form
+function resetForm() {
+    document.getElementById('submitBtn').disabled = false;
+    document.getElementById('submitBtn').innerHTML = '<i class="bi bi-play-circle"></i> Gerar Resumo';
+    document.getElementById('progressSection').style.display = 'none';
+}
+
+// Start new summarization
+function startNewSummarization() {
+    document.getElementById('resultsSection').style.display = 'none';
+    document.getElementById('progressSection').style.display = 'none';
+    resetForm();
+    
+    // Clear form
+    document.getElementById('articleUrl').value = '';
+    document.getElementById('method').value = 'extractive';
+    document.getElementById('length').value = 'medium';
+    
+    // Focus on URL input
+    document.getElementById('articleUrl').focus();
+    
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Auto-focus on URL input when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('articleUrl').focus();
+});
+</script>
+{% endblock %} 
