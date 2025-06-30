@@ -310,24 +310,6 @@ def internal_error(error):
                          error_code=500,
                          error_message="Internal server error"), 500
 
-if __name__ == '__main__':
-    # Create necessary directories
-    os.makedirs('outputs', exist_ok=True)
-    os.makedirs('.cache', exist_ok=True)
-    os.makedirs('templates', exist_ok=True)
-    os.makedirs('static/css', exist_ok=True)
-    os.makedirs('static/js', exist_ok=True)
-    
-    # Run the application
-    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
-    port = int(os.environ.get('PORT', 5000))
-    
-    print(f"🚀 Starting Article Summarizer Web App on port {port}")
-    print(f"🌐 Open your browser to: http://localhost:{port}")
-    
-    app.run(
-        host='0.0.0.0',
-        port=port,
-        debug=debug_mode,
-        threaded=True
-    ) 
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port) 

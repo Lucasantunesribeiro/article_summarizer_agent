@@ -34,7 +34,7 @@ def main():
         print("✅ Dependencies verified")
     except ImportError as e:
         print(f"❌ Missing dependency: {e}")
-        print("Please run: py -m pip install -r requirements.txt")
+        print("Please run: python -m pip install -r requirements.txt")
         return
     
     # Start the application
@@ -51,7 +51,7 @@ def main():
     
     # Start the Flask app
     print("🚀 Launching Flask application...")
-    os.system("py app.py")
+    os.system("python app.py")
 
 if __name__ == "__main__":
     main() 
