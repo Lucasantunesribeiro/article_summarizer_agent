@@ -52,25 +52,6 @@ python test_advanced_waf_bypass.py
 
 ---
 
-## ☁️ Deploy Gratuito
-
-### Render.com
-1. Crie um novo serviço Web Service (Python)
-2. Configure o build command: `pip install -r requirements.txt`
-3. Configure o start command: `python start_app.py`
-4. Adicione variáveis de ambiente se necessário
-
-### Railway.app
-1. Novo projeto > Deploy from GitHub
-2. Start command: `python start_app.py`
-
-### Vercel (com Python API)
-- Use o Vercel Python template e adapte o start para `start_app.py`
-
-### GitHub Codespaces
-- Basta abrir o Codespace e rodar `python start_app.py`
-
----
 
 ## 📦 Estrutura de Pastas
 
@@ -97,11 +78,3 @@ article_summarizer_agent/
 - scikit-learn, numpy, nltk
 - transformers (opcional para resumo generativo)
 
----
-
-## 🔑 Créditos
-- Desenvolvido por [Lucasantunesribeiro](https://github.com/Lucasantunesribeiro)
-- Inspiração: projetos open-source de scraping e NLP
-
-## 📄 Licença
-MIT License
