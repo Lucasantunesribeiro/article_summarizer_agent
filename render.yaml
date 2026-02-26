@@ -3,9 +3,7 @@ services:
     name: article_summarizer_agent
     env: python
     buildCommand: "./render-build.sh"
-    startCommand: "python app.py"
+    startCommand: "gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120 app:app"
     envVars:
       - key: PYTHON_VERSION
-        value: 3.13.0
-      - key: CHROME_BIN
-        value: /opt/render/project/src/opt/chrome/chrome-linux64/chrome
+        value: "3.13.0"

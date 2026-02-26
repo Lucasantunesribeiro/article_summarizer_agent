@@ -18,6 +18,7 @@ Requirements (optional, install if JS rendering is needed):
 from __future__ import annotations
 
 import logging
+import os
 import time
 
 from bs4 import BeautifulSoup
@@ -73,26 +74,13 @@ class JsRenderingScraper:
         options.add_argument("--disable-gpu")
         options.add_argument("--user-agent=" + config.scraping.user_agents[0])
 
-        import os
         chrome_bin = os.environ.get("CHROME_BIN")
-        if not chrome_bin and os.environ.get("RENDER"):
-            default_render_bin = "/opt/render/project/src/opt/chrome/chrome-linux64/chrome"
-            if os.path.exists(default_render_bin):
-                chrome_bin = default_render_bin
-                
         if chrome_bin:
             options.binary_location = chrome_bin
 
         driver = None
         try:
-            render_driver = "/opt/render/project/src/opt/chrome/chromedriver-linux64/chromedriver"
-            if os.environ.get("RENDER") and os.path.exists(render_driver):
-                # Ensure the driver is executable
-                os.chmod(render_driver, 0o755)
-                service = Service(render_driver)
-            else:
-                service = Service(ChromeDriverManager().install())
-                
+            service = Service(ChromeDriverManager().install())
             driver = webdriver.Chrome(service=service, options=options)
             driver.set_page_load_timeout(config.scraping.timeout)
 
