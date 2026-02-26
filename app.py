@@ -42,10 +42,7 @@ app = Flask(__name__)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("flask_app.log"),
-        logging.StreamHandler(sys.stdout),
-    ],
+    handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger(__name__)
 
@@ -120,9 +117,10 @@ def _validate_url(url: str) -> bool:
 
 def _normalise_url(url: str) -> str:
     url = url.strip()
-    if url.startswith("www."):
-        url = url[4:]
     if not url.startswith(("http://", "https://")):
+        # Strip bare "www." prefix only before adding scheme
+        if url.startswith("www."):
+            url = url[4:]
         url = "https://" + url
     return url
 

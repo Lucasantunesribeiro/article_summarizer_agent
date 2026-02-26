@@ -28,7 +28,6 @@ from pathlib import Path
 
 import colorama
 from colorama import Fore, Style
-from tqdm import tqdm
 
 colorama.init()
 
@@ -57,9 +56,9 @@ class ArticleSummarizerAgent:
             self.text_processor = TextProcessor()
             self.summarizer = Summarizer()
             self.file_manager = FileManager()
-            print(f"{Fore.GREEN}✓ Agent initialised{Style.RESET_ALL}")
+            logger.info("Agent initialised")
         except Exception as exc:
-            print(f"{Fore.RED}✗ Initialisation failed: {exc}{Style.RESET_ALL}")
+            logger.error("Initialisation failed: %s", exc)
             raise
 
     # ------------------------------------------------------------------
@@ -157,33 +156,29 @@ class ArticleSummarizerAgent:
     # ------------------------------------------------------------------
 
     def _step1_validate(self, url: str) -> dict:
-        with tqdm(total=1, desc="Step 1: Validating URL", colour="blue") as pbar:
-            url = url.strip()
-            if not url:
-                raise ValueError("Empty URL provided.")
-            if not url.startswith(("http://", "https://")):
-                url = "https://" + url
-            pbar.update(1)
+        logger.info("Step 1: Validating URL: %s", url)
+        url = url.strip()
+        if not url:
+            raise ValueError("Empty URL provided.")
+        if not url.startswith(("http://", "https://")):
+            url = "https://" + url
         logger.info("Step 1 complete: %s", url)
         return {"validated_url": url}
 
     def _step2_scrape(self, step1: dict) -> dict:
         url = step1["validated_url"]
-        with tqdm(total=2, desc="Step 2: Scraping content", colour="green") as pbar:
-            pbar.set_description("Fetching…")
-            pbar.update(1)
+        logger.info("Step 2: Scraping %s", url)
+        try:
+            data = self.web_scraper.scrape_article(url)
+        except Exception as scrape_exc:
+            # Try JS rendering as fallback (only when selenium is installed locally)
             try:
-                data = self.web_scraper.scrape_article(url)
-            except Exception as scrape_exc:
-                # Try JS rendering as fallback (only when selenium is installed locally)
-                try:
-                    from modules.selenium_scraper import JsRenderingScraper  # noqa: PLC0415
+                from modules.selenium_scraper import JsRenderingScraper  # noqa: PLC0415
 
-                    data = JsRenderingScraper().scrape_article(url)
-                except ImportError:
-                    # Selenium not available — surface the original scraping error
-                    raise scrape_exc from None
-            pbar.update(1)
+                data = JsRenderingScraper().scrape_article(url)
+            except ImportError:
+                # Selenium not available — surface the original scraping error
+                raise scrape_exc from None
 
         if not data.get("content") or len(data["content"].strip()) < 100:
             raise ValueError("Insufficient content extracted.")
@@ -191,15 +186,11 @@ class ArticleSummarizerAgent:
         return data
 
     def _step3_process(self, scraped: dict) -> dict:
-        with tqdm(total=2, desc="Step 3: Processing text", colour="yellow") as pbar:
-            pbar.set_description("Cleaning text…")
-            processed = self.text_processor.process_text(scraped["content"])
-            pbar.update(1)
-            sentences = processed.get("sentences", [])
-            if len(sentences) < 2:
-                raise ValueError("Insufficient sentences after processing.")
-            pbar.set_description("Done.")
-            pbar.update(1)
+        logger.info("Step 3: Processing text")
+        processed = self.text_processor.process_text(scraped["content"])
+        sentences = processed.get("sentences", [])
+        if len(sentences) < 2:
+            raise ValueError("Insufficient sentences after processing.")
         logger.info("Step 3 complete: %d sentences", len(sentences))
         return processed
 
@@ -210,12 +201,8 @@ class ArticleSummarizerAgent:
         length: str | None = None,
     ) -> dict:
         effective_method = method or config.summarization.method
-        with tqdm(
-            total=2, desc=f"Step 4: Summarising ({effective_method})", colour="magenta"
-        ) as pbar:
-            pbar.set_description(f"Running {effective_method}…")
-            data = self.summarizer.summarize(processed, method=effective_method, length=length)
-            pbar.update(2)
+        logger.info("Step 4: Summarising (%s)", effective_method)
+        data = self.summarizer.summarize(processed, method=effective_method, length=length)
         if not data.get("summary") or len(data["summary"].strip()) < 10:
             raise ValueError("Generated summary is too short or empty.")
         logger.info(
@@ -226,9 +213,8 @@ class ArticleSummarizerAgent:
         return data
 
     def _step5_save(self, summary: dict, scraped: dict, processed: dict) -> dict:
-        with tqdm(total=1, desc="Step 5: Saving results", colour="cyan") as pbar:
-            result = self.file_manager.save_results(summary, scraped, processed)
-            pbar.update(1)
+        logger.info("Step 5: Saving results")
+        result = self.file_manager.save_results(summary, scraped, processed)
         logger.info("Step 5 complete: %d files", len(result.get("files_created", {})))
         return result
 
