@@ -182,7 +182,9 @@ class ExtractiveSummarizer:
                 logger.debug("Could not load %s stopwords: %s", language, exc)
         return "english"
 
-    def _tfidf_scores(self, sentences: list[str], stop_words: str | list[str] = "english") -> list[float]:
+    def _tfidf_scores(
+        self, sentences: list[str], stop_words: str | list[str] = "english"
+    ) -> list[float]:
         try:
             vec = TfidfVectorizer(
                 stop_words=stop_words,
@@ -225,7 +227,9 @@ class ExtractiveSummarizer:
                 scores.append(0.7)
         return scores
 
-    def _similarity_scores(self, sentences: list[str], stop_words: str | list[str] = "english") -> list[float]:
+    def _similarity_scores(
+        self, sentences: list[str], stop_words: str | list[str] = "english"
+    ) -> list[float]:
         try:
             doc = " ".join(sentences)
             vec = TfidfVectorizer(stop_words=stop_words, lowercase=True)
