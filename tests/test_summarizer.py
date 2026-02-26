@@ -52,12 +52,12 @@ class TestExtractiveSummarizer:
         for s in result.get("selected_sentences", []):
             assert s in SENTENCES
 
-    def test_short_length(self, summarizer):
-        config.summarization.summary_length = "short"
+    def test_short_length(self, summarizer, monkeypatch):
+        monkeypatch.setattr(config.summarization, "summary_length", "short")
         result = summarizer.summarize(SENTENCES, PROCESSED_DATA)
         # short → 3 sentences max
         assert len(result.get("selected_sentences", [])) <= 3
-        config.summarization.summary_length = "medium"  # restore
+        # No manual restore needed — monkeypatch auto-restores after test
 
     def test_single_sentence_handled(self, summarizer):
         result = summarizer.summarize(
@@ -68,19 +68,19 @@ class TestExtractiveSummarizer:
 
 class TestSummarizerDispatcher:
     def test_extractive_mode_works_offline(self, monkeypatch):
-        config.summarization.method = "extractive"
+        monkeypatch.setattr(config.summarization, "method", "extractive")
         s = Summarizer()
         result = s.summarize(PROCESSED_DATA)
         assert result["summary"]
         assert result["method_used"] == "extractive"
+        # No manual restore needed — monkeypatch auto-restores after test
 
     def test_generative_falls_back_when_no_key(self, monkeypatch):
         # No API key → should fall back to extractive (use_fallback=True)
-        config.summarization.method = "generative"
-        config.gemini.api_key = ""
-        config.summarization.use_fallback = True
+        monkeypatch.setattr(config.summarization, "method", "generative")
+        monkeypatch.setattr(config.gemini, "api_key", "")
+        monkeypatch.setattr(config.summarization, "use_fallback", True)
         s = Summarizer()
         result = s.summarize(PROCESSED_DATA)
         assert result["summary"]
-        # Restore
-        config.summarization.method = "extractive"
+        # No manual restore needed — monkeypatch auto-restores after test
