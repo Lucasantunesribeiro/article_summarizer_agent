@@ -175,14 +175,15 @@ class ArticleSummarizerAgent:
             pbar.update(1)
             try:
                 data = self.web_scraper.scrape_article(url)
-            except Exception:
-                # Try JS rendering as fallback
+            except Exception as scrape_exc:
+                # Try JS rendering as fallback (only when selenium is installed locally)
                 try:
                     from modules.selenium_scraper import JsRenderingScraper  # noqa: PLC0415
 
                     data = JsRenderingScraper().scrape_article(url)
                 except ImportError:
-                    raise
+                    # Selenium not available — surface the original scraping error
+                    raise scrape_exc from None
             pbar.update(1)
 
         if not data.get("content") or len(data["content"].strip()) < 100:
