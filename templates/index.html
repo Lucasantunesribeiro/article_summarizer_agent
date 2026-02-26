@@ -303,7 +303,7 @@ document.getElementById('summarizeForm').addEventListener('submit', async functi
     document.getElementById('submitBtn').innerHTML = '<i class="bi bi-hourglass-split"></i> Processando...';
     
     try {
-        const response = await fetch('/api/summarize', {
+        const response = await fetch('/api/sumarizar', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -337,7 +337,7 @@ function startPolling() {
     
     pollInterval = setInterval(async () => {
         try {
-            const response = await fetch(`/api/task/${currentTaskId}`);
+            const response = await fetch(`/api/tarefa/${currentTaskId}`);
             const data = await response.json();
             
             if (data.success) {
