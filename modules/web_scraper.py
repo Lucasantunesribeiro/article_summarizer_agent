@@ -137,8 +137,14 @@ class WebScraper:
         headers = dict(config.scraping.headers)
         headers["User-Agent"] = random.choice(config.scraping.user_agents)
 
-        # 4. Fetch with retries
-        response = self._fetch(url, headers)
+        # 4. Fetch with retries — fall back to Wayback Machine on 403
+        try:
+            response = self._fetch(url, headers)
+        except requests.HTTPError as http_exc:
+            if http_exc.response is not None and http_exc.response.status_code == 403:
+                logger.warning("403 Forbidden for %s — trying Wayback Machine fallback", url)
+                return self._scrape_via_wayback(url)
+            raise
 
         # 5. Detect encoding
         encoding = self._detect_encoding(response)
@@ -238,6 +244,65 @@ class WebScraper:
                     raise
 
         raise requests.RequestException(f"All retries exhausted for {url}")
+
+    def _scrape_via_wayback(self, url: str) -> dict:
+        """Fetch article from Wayback Machine when direct access is blocked (403).
+
+        Queries the Wayback availability API, retrieves the most recent snapshot,
+        and extracts content using the same pipeline as a direct fetch.
+        """
+        availability_url = f"https://archive.org/wayback/available?url={url}"
+        try:
+            api_resp = requests.get(
+                availability_url,
+                timeout=15,
+                verify=True,
+                headers={"User-Agent": config.scraping.user_agents[0]},
+            )
+            api_resp.raise_for_status()
+            snapshot = api_resp.json().get("archived_snapshots", {}).get("closest", {})
+        except Exception as exc:
+            raise ValueError(
+                f"Cannot reach Wayback Machine API: {exc}. "
+                f"The site {url!r} returned 403 and no cached copy is available."
+            ) from exc
+
+        if not snapshot.get("available"):
+            raise ValueError(
+                f"Site returned 403 and no Wayback Machine snapshot exists for {url!r}. "
+                "Try a different URL or check if the article is publicly accessible."
+            )
+
+        snapshot_url = snapshot["url"]
+        logger.info("Wayback snapshot found: %s", snapshot_url)
+
+        snap_resp = requests.get(
+            snapshot_url,
+            timeout=config.scraping.timeout,
+            verify=True,
+            headers={**dict(config.scraping.headers), "User-Agent": config.scraping.user_agents[0]},
+        )
+        snap_resp.raise_for_status()
+
+        soup = BeautifulSoup(snap_resp.text, "html.parser")
+        content_data = self._extract_content(soup, url)
+        content_data.update(
+            {
+                "url": url,
+                "status_code": snap_resp.status_code,
+                "encoding": self._detect_encoding(snap_resp),
+                "scraped_at": time.time(),
+                "extraction_method": content_data.get("extraction_method", "") + "+wayback",
+            }
+        )
+
+        self._mem_cache[hashlib.md5(url.encode()).hexdigest()] = content_data
+        logger.info(
+            "Wayback scrape complete — %d words for %r",
+            content_data.get("word_count", 0),
+            url,
+        )
+        return content_data
 
     def _detect_encoding(self, response: requests.Response) -> str:
         enc = response.encoding
