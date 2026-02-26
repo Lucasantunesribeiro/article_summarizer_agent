@@ -160,12 +160,10 @@ class TextProcessor:
 
     def _basic_cleaning(self, text: str) -> str:
         """Basic text cleaning operations"""
-        # Collapse horizontal whitespace only — preserve newlines so that
-        # _advanced_cleaning can filter individual lines (navigation items,
-        # list entries, etc.) rather than one giant concatenated string.
-        text = re.sub(r"[^\S\n]+", " ", text)
+        # Remove extra whitespace
+        text = re.sub(r"\s+", " ", text)
 
-        # Remove control characters (keep \n and \t)
+        # Remove control characters
         text = "".join(char for char in text if ord(char) >= 32 or char in "\n\t")
 
         # Fix common encoding issues
