@@ -71,6 +71,29 @@ CORS(
 )
 
 # ---------------------------------------------------------------------------
+# Security headers
+# ---------------------------------------------------------------------------
+
+
+@app.after_request
+def _add_security_headers(response):
+    """Add security headers to every response (M2)."""
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    # CSP: allow same-origin scripts/styles only; no inline scripts
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com; "
+        "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com fonts.googleapis.com; "
+        "font-src 'self' fonts.gstatic.com cdn.jsdelivr.net cdnjs.cloudflare.com; "
+        "img-src 'self' data:; "
+        "connect-src 'self';"
+    )
+    return response
+
+
+# ---------------------------------------------------------------------------
 # In-memory task store
 # ---------------------------------------------------------------------------
 
