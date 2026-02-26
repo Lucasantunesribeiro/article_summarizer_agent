@@ -344,10 +344,10 @@ function startPolling() {
                 const task = data.task;
                 updateProgress(task.progress, task.message);
                 
-                if (task.status === 'completed') {
+                if (task.status === 'done') {
                     clearInterval(pollInterval);
                     showResults(task.result);
-                } else if (task.status === 'failed') {
+                } else if (task.status === 'failed' || task.status === 'error') {
                     clearInterval(pollInterval);
                     showAlert('<i class="bi bi-exclamation-triangle"></i> Falha no processamento: ' + task.message, 'danger');
                     resetForm();

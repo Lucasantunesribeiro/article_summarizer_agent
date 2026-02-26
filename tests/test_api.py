@@ -246,8 +246,6 @@ class TestDownloadPathTraversalM1:
 
     def test_path_traversal_via_dotdot_returns_400(self, client):
         import app as flask_app
-        import os
-
         from config import config
 
         task_id = "aaaaaaaa-0000-0000-0000-000000000002"
@@ -264,7 +262,6 @@ class TestDownloadPathTraversalM1:
 
     def test_valid_path_inside_outputs_returns_404_when_file_missing(self, client):
         import app as flask_app
-
         from config import config
 
         task_id = "aaaaaaaa-0000-0000-0000-000000000003"
