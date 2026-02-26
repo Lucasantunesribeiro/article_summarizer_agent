@@ -88,7 +88,7 @@ def _add_security_headers(response):
         "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com fonts.googleapis.com; "
         "font-src 'self' fonts.gstatic.com cdn.jsdelivr.net cdnjs.cloudflare.com; "
         "img-src 'self' data:; "
-        "connect-src 'self';"
+        "connect-src 'self' cdn.jsdelivr.net cdnjs.cloudflare.com;"
     )
     return response
 

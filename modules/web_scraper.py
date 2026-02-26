@@ -163,6 +163,18 @@ class WebScraper:
             }
         )
 
+        # 7. If content is suspiciously thin (JS-rendered SPA), try Wayback Machine
+        if content_data.get("word_count", 0) < 80:
+            logger.info(
+                "Thin content (%d words) from %s — trying Wayback Machine",
+                content_data.get("word_count", 0),
+                url,
+            )
+            try:
+                return self._scrape_via_wayback(url)
+            except Exception as wb_exc:
+                logger.warning("Wayback fallback also failed: %s — using thin content", wb_exc)
+
         self._mem_cache[url_hash] = content_data
         logger.info(
             "Scraped %r — %d words via %s",
