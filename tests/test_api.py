@@ -153,3 +153,128 @@ class TestWebRoutes:
     def test_404_on_unknown_route(self, client):
         resp = client.get("/this/does/not/exist")
         assert resp.status_code == 404
+
+
+class TestClearCacheAuthC3:
+    """C3: /api/limpar-cache must fail-closed when ADMIN_TOKEN is unset."""
+
+    def test_no_token_header_returns_403_when_admin_token_unset(self, client):
+        # ADMIN_TOKEN is not set in the test environment — must be rejected.
+        original = os.environ.pop("ADMIN_TOKEN", None)
+        try:
+            resp = client.post("/api/limpar-cache")
+            assert resp.status_code == 403
+            data = resp.get_json()
+            assert data["success"] is False
+        finally:
+            if original is not None:
+                os.environ["ADMIN_TOKEN"] = original
+
+    def test_wrong_token_returns_403_when_admin_token_unset(self, client):
+        original = os.environ.pop("ADMIN_TOKEN", None)
+        try:
+            resp = client.post(
+                "/api/limpar-cache",
+                headers={"X-Admin-Token": "wrong-token"},
+            )
+            assert resp.status_code == 403
+        finally:
+            if original is not None:
+                os.environ["ADMIN_TOKEN"] = original
+
+    def test_correct_token_clears_cache(self, client):
+        os.environ["ADMIN_TOKEN"] = "supersecret"
+        try:
+            resp = client.post(
+                "/api/limpar-cache",
+                headers={"X-Admin-Token": "supersecret"},
+            )
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data["success"] is True
+        finally:
+            del os.environ["ADMIN_TOKEN"]
+
+    def test_wrong_token_returns_403_when_admin_token_set(self, client):
+        os.environ["ADMIN_TOKEN"] = "supersecret"
+        try:
+            resp = client.post(
+                "/api/limpar-cache",
+                headers={"X-Admin-Token": "bad-guess"},
+            )
+            assert resp.status_code == 403
+        finally:
+            del os.environ["ADMIN_TOKEN"]
+
+
+class TestDownloadPathTraversalM1:
+    """M1: /api/download/<id>/<fmt> must reject paths outside the outputs/ directory."""
+
+    def _inject_result(self, flask_app, task_id: str, path: str) -> None:
+        """Directly insert a fake completed result into the in-memory store."""
+        with flask_app._lock:
+            flask_app._tasks[task_id] = {
+                "status": "done",
+                "progress": 100,
+                "message": "Done!",
+                "created_at": "2026-01-01T00:00:00",
+                "url": "https://example.com",
+                "method": "extractive",
+                "length": "medium",
+            }
+            flask_app._results[task_id] = {
+                "success": True,
+                "summary": "test",
+                "statistics": {},
+                "method_used": "extractive",
+                "execution_time": 0.1,
+                "files_created": {"txt": path},
+            }
+
+    def test_path_outside_outputs_returns_400(self, client):
+        import app as flask_app
+
+        task_id = "aaaaaaaa-0000-0000-0000-000000000001"
+        # Attempt to reference /etc/passwd — outside any outputs/ directory.
+        self._inject_result(flask_app, task_id, "/etc/passwd")
+
+        resp = client.get(f"/api/download/{task_id}/txt")
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert data["success"] is False
+        assert "Invalid file path" in data["error"]
+
+    def test_path_traversal_via_dotdot_returns_400(self, client):
+        import app as flask_app
+        import os
+
+        from config import config
+
+        task_id = "aaaaaaaa-0000-0000-0000-000000000002"
+        # Construct a path that uses ../ to escape the outputs directory.
+        traversal_path = os.path.join(config.output.output_dir, "..", "secret.txt")
+        self._inject_result(flask_app, task_id, traversal_path)
+
+        resp = client.get(f"/api/download/{task_id}/txt")
+        # After resolve(), the path lands outside outputs/ — must be 400.
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert data["success"] is False
+        assert "Invalid file path" in data["error"]
+
+    def test_valid_path_inside_outputs_returns_404_when_file_missing(self, client):
+        import app as flask_app
+
+        from config import config
+
+        task_id = "aaaaaaaa-0000-0000-0000-000000000003"
+        # Path is inside outputs/ but the file does not actually exist on disk.
+        valid_path = os.path.join(config.output.output_dir, "summary_test.txt")
+        self._inject_result(flask_app, task_id, valid_path)
+
+        resp = client.get(f"/api/download/{task_id}/txt")
+        # Path is valid but file is absent — expect 404, not 400.
+        assert resp.status_code == 404
+        data = resp.get_json()
+        assert data["success"] is False
+        assert "File not found" in data["error"]

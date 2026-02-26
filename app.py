@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
+import pathlib
 import secrets
 import sys
 import threading
@@ -365,10 +366,17 @@ def api_download(task_id: str, fmt: str):
         ), 404
 
     path = files[fmt]
-    if not os.path.exists(path):
+    # Security (M1): ensure the resolved path stays inside the configured output directory.
+    allowed_dir = pathlib.Path(config.output.output_dir).resolve()
+    resolved_path = pathlib.Path(path).resolve()
+    if not str(resolved_path).startswith(str(allowed_dir)):
+        return jsonify({"success": False, "error": "Invalid file path."}), 400
+    if not resolved_path.exists():
         return jsonify({"success": False, "error": "File not found on server."}), 404
 
-    return send_file(path, as_attachment=True, download_name=f"summary_{task_id[:8]}.{fmt}")
+    return send_file(
+        str(resolved_path), as_attachment=True, download_name=f"summary_{task_id[:8]}.{fmt}"
+    )
 
 
 @app.route("/api/status", methods=["GET"])
@@ -403,10 +411,11 @@ def api_stats():
 
 @app.route("/api/limpar-cache", methods=["POST"])
 def api_clear_cache():
-    # Require a simple auth token to prevent unauthenticated cache clearing
+    # Require a simple auth token to prevent unauthenticated cache clearing.
+    # Security (C3): fail-closed — deny when ADMIN_TOKEN is unset OR token doesn't match.
     token = request.headers.get("X-Admin-Token", "")
     expected = os.getenv("ADMIN_TOKEN", "")
-    if expected and token != expected:
+    if not expected or token != expected:
         return jsonify({"success": False, "error": "Unauthorised."}), 403
 
     if not _agent_ready:
