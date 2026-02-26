@@ -49,11 +49,20 @@ class Summarizer:
             logger.warning("Gemini summarizer unavailable (%s); using extractive fallback.", exc)
             return None
 
-    def summarize(self, processed_data: dict) -> dict:
+    def summarize(
+        self,
+        processed_data: dict,
+        method: str | None = None,
+        length: str | None = None,
+    ) -> dict:
         """Generate a summary from processed text data.
 
         Args:
             processed_data: Dict produced by TextProcessor.process_text().
+            method: Per-call override for summarisation method
+                ("extractive" / "generative"). Falls back to config default.
+            length: Per-call override for summary length
+                ("short" / "medium" / "long"). Falls back to config default.
 
         Returns:
             Dict with at least: summary (str), method_used (str).
@@ -62,31 +71,39 @@ class Summarizer:
         if not sentences:
             raise ValueError("No sentences in processed_data.")
 
-        method = config.summarization.method
+        # Resolve per-call overrides; never mutate the global singleton.
+        effective_method = method or config.summarization.method
+        effective_length = length or config.summarization.summary_length
 
         try:
-            if method == "generative" and self._gemini is not None:
+            if effective_method == "generative" and self._gemini is not None:
                 result = self._gemini.summarize(  # type: ignore[attr-defined]
                     processed_data
                 )
-            elif method == "generative" and config.summarization.use_fallback:
+            elif effective_method == "generative" and config.summarization.use_fallback:
                 logger.info("Gemini unavailable — falling back to extractive.")
-                result = self._extractive.summarize(sentences, processed_data)
+                result = self._extractive.summarize(
+                    sentences, processed_data, length=effective_length
+                )
             else:
-                result = self._extractive.summarize(sentences, processed_data)
+                result = self._extractive.summarize(
+                    sentences, processed_data, length=effective_length
+                )
 
         except Exception as exc:
             logger.error("Primary summarisation failed: %s", exc)
-            if config.summarization.use_fallback and method != "extractive":
+            if config.summarization.use_fallback and effective_method != "extractive":
                 logger.info("Falling back to extractive summarisation.")
-                result = self._extractive.summarize(sentences, processed_data)
+                result = self._extractive.summarize(
+                    sentences, processed_data, length=effective_length
+                )
             else:
                 raise
 
         # Attach common metadata
-        result.setdefault("method_used", method)
+        result.setdefault("method_used", effective_method)
         result["original_sentence_count"] = len(sentences)
-        result["summary_length_setting"] = config.summarization.summary_length
+        result["summary_length_setting"] = effective_length
         result["language"] = processed_data.get("language", "unknown")
         return result
 
@@ -99,7 +116,12 @@ class Summarizer:
 class ExtractiveSummarizer:
     """TF-IDF + position + cosine-similarity sentence ranking."""
 
-    def summarize(self, sentences: list[str], processed_data: dict) -> dict:
+    def summarize(
+        self,
+        sentences: list[str],
+        processed_data: dict,
+        length: str | None = None,
+    ) -> dict:
         if len(sentences) < 2:
             return {
                 "summary": sentences[0] if sentences else "",
@@ -117,7 +139,7 @@ class ExtractiveSummarizer:
             tfidf_scores, position_scores, length_scores, similarity_scores
         )
 
-        selected_idx = self._select_diverse(sentences, combined)
+        selected_idx = self._select_diverse(sentences, combined, length=length)
         selected = [sentences[i] for i in selected_idx]
         summary = self._join_sentences(selected)
 
@@ -204,10 +226,14 @@ class ExtractiveSummarizer:
 
     # --- Selection ---
 
-    def _select_diverse(self, sentences: list[str], scores: list[float]) -> list[int]:
-        target = config.summarization.extractive_sentences.get(
-            config.summarization.summary_length, 5
-        )
+    def _select_diverse(
+        self,
+        sentences: list[str],
+        scores: list[float],
+        length: str | None = None,
+    ) -> list[int]:
+        effective_length = length or config.summarization.summary_length
+        target = config.summarization.extractive_sentences.get(effective_length, 5)
         target = min(target, len(sentences))
 
         ranked = sorted(enumerate(scores), key=lambda x: x[1], reverse=True)

@@ -84,11 +84,10 @@ class ArticleSummarizerAgent:
             method_used, execution_time, timestamp.
             On failure: success=False, error=<str>.
         """
-        # Apply per-call overrides without mutating the singleton permanently
-        if method:
-            config.summarization.method = method
-        if length:
-            config.summarization.summary_length = length
+        # Compute per-call effective values without mutating the global singleton.
+        # Flask runs threaded=True; mutating shared state here causes data races.
+        effective_method = method or config.summarization.method
+        effective_length = length or config.summarization.summary_length
 
         start = time.time()
         print(f"\n{Fore.CYAN}🤖 Article Summarizer Agent{Style.RESET_ALL}")
@@ -104,7 +103,7 @@ class ArticleSummarizerAgent:
             step1 = self._step1_validate(url)
             step2 = self._step2_scrape(step1)
             step3 = self._step3_process(step2)
-            step4 = self._step4_summarize(step3)
+            step4 = self._step4_summarize(step3, method=effective_method, length=effective_length)
             step5 = self._step5_save(step4, step2, step3)
 
             execution_time = time.time() - start
@@ -204,11 +203,18 @@ class ArticleSummarizerAgent:
         logger.info("Step 3 complete: %d sentences", len(sentences))
         return processed
 
-    def _step4_summarize(self, processed: dict) -> dict:
-        method = config.summarization.method
-        with tqdm(total=2, desc=f"Step 4: Summarising ({method})", colour="magenta") as pbar:
-            pbar.set_description(f"Running {method}…")
-            data = self.summarizer.summarize(processed)
+    def _step4_summarize(
+        self,
+        processed: dict,
+        method: str | None = None,
+        length: str | None = None,
+    ) -> dict:
+        effective_method = method or config.summarization.method
+        with tqdm(
+            total=2, desc=f"Step 4: Summarising ({effective_method})", colour="magenta"
+        ) as pbar:
+            pbar.set_description(f"Running {effective_method}…")
+            data = self.summarizer.summarize(processed, method=effective_method, length=length)
             pbar.update(2)
         if not data.get("summary") or len(data["summary"].strip()) < 10:
             raise ValueError("Generated summary is too short or empty.")
