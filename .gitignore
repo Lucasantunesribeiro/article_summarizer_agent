@@ -8,16 +8,14 @@ dist/
 build/
 .eggs/
 
-# Virtualenv
+# Virtual environments
 .venv/
 venv/
 ENV/
 env/
 
-# VSCode
+# IDEs
 .vscode/
-
-# PyCharm
 .idea/
 
 # Jupyter
@@ -25,43 +23,52 @@ env/
 
 # Logs
 *.log
+flask_app.log
+summarizer.log
+selenium_test.log
 
-# Cache
+# Cache directories
 .cache/
-*.cache
+.model_cache/
 
-# Outputs
+# Outputs (generated at runtime)
 outputs/
 
-# Configurações locais
-*.local.json
-*.env
+# Environment / secrets
+.env
 .env.*
+!.env.example
 
-# Sistema operacional
+# OS
 .DS_Store
 Thumbs.db
 
-# Arquivos temporários
+# Temp files
 *.tmp
 *.bak
 *.swp
 
-# Testes
-selenium_test.log
-summarizer.log
-
-# Arquivos de pacotes
+# Model weights / large binaries
 *.pkl
 *.h5
 *.db
-
-# Outros
 *.sqlite3
+*.pt
+*.bin
 
-# Node/npm (caso use para frontend)
+# Node (if adding a JS frontend later)
 node_modules/
 
-# Arquivos de deploy
-Procfile
-runtime.txt 
+# Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Ruff
+.ruff_cache/
+
+# Docker
+*.tar
+
+# Chrome driver temp profiles
+/tmp/chrome_profile_*/

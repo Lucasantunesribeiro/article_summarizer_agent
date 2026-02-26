@@ -1,19 +1,34 @@
+# ── Core HTTP & parsing ──────────────────────────────────────────────────────
 requests>=2.31.0
 beautifulsoup4>=4.12.0
+chardet>=5.1.0
+
+# ── Text processing ──────────────────────────────────────────────────────────
 nltk>=3.8.1
 scikit-learn>=1.3.0
-transformers>=4.30.0
-torch>=2.0.0
 langdetect>=1.0.9
+
+# ── CLI UX ───────────────────────────────────────────────────────────────────
 tqdm>=4.65.0
 colorama>=0.4.6
-newspaper3k>=0.2.8
-chardet>=5.1.0
+
+# ── Web application ───────────────────────────────────────────────────────────
 flask>=3.0.0
 flask-cors>=4.0.0
-selenium>=4.15.0
-webdriver-manager>=4.0.1
-undetected-chromedriver>=3.5.4
-fake-useragent>=1.4.0
-cloudscraper>=1.2.71
-psutil>=5.9.6
+gunicorn>=21.2.0
+
+# ── AI summarisation (Gemini) ─────────────────────────────────────────────────
+# Verify the latest stable model IDs at: https://ai.google.dev/gemini-api/docs/models
+google-genai>=1.0.0
+
+# ── Optional: content extraction helper ──────────────────────────────────────
+# newspaper3k is an optional fallback for content extraction.
+# Uncomment to enable:
+# newspaper3k>=0.2.8
+
+# ── Optional: JS rendering (for SPA/JS-heavy pages) ──────────────────────────
+# Only needed if you want JavaScript rendering support.
+# Does NOT include any stealth or WAF-bypass functionality.
+# Uncomment to enable:
+# selenium>=4.20.0
+# webdriver-manager>=4.0.1

@@ -1,13 +1,12 @@
 """
-Article Summarizer Agent - Modules Package
+Article Summarizer Agent — modules package
 """
 
-__version__ = "1.0.0"
-__author__ = "Article Summarizer Agent"
+__version__ = "2.0.0"
 
-from .web_scraper import WebScraper
-from .text_processor import TextProcessor
-from .summarizer import Summarizer
 from .file_manager import FileManager
+from .summarizer import Summarizer
+from .text_processor import TextProcessor
+from .web_scraper import WebScraper
 
-__all__ = ['WebScraper', 'TextProcessor', 'Summarizer', 'FileManager']
+__all__ = ["WebScraper", "TextProcessor", "Summarizer", "FileManager"]
