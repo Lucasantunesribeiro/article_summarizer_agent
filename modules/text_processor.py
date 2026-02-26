@@ -160,10 +160,12 @@ class TextProcessor:
 
     def _basic_cleaning(self, text: str) -> str:
         """Basic text cleaning operations"""
-        # Remove extra whitespace
-        text = re.sub(r"\s+", " ", text)
+        # Collapse horizontal whitespace only — preserve newlines so that
+        # _advanced_cleaning can filter individual lines (navigation items,
+        # list entries, etc.) rather than one giant concatenated string.
+        text = re.sub(r"[^\S\n]+", " ", text)
 
-        # Remove control characters
+        # Remove control characters (keep \n and \t)
         text = "".join(char for char in text if ord(char) >= 32 or char in "\n\t")
 
         # Fix common encoding issues
@@ -307,10 +309,17 @@ class TextProcessor:
 
         # Skip sentences that look like navigation or UI elements
         ui_patterns = [
+            # English navigation
             r"^(click|select|choose|enter|submit|login|register|home|about|contact|menu)",
             r"(copyright|©|\(c\))",
             r"^(next|previous|back|forward|up|down)$",
             r"^[0-9\s\-/]+$",
+            # Portuguese UI / marketplace / book-store patterns
+            r"^(obter|comprar|encontrar|procure|ir para|adicionar|ver todos|baixar|acessar)\b",
+            r"^(livraria|editora|publicado por|publicada por|sobre este|sobre o livro)\b",
+            r"(todos os vendedores|e-book dispon|livro impresso|google play|eBookstore)",
+            r"^(nenhum|nenhuma)\s",
+            r"^(ler|ouvir|assistir|compartilhar|denunciar|sinalizar)\b",
         ]
 
         return all(not re.search(pattern, sentence.lower()) for pattern in ui_patterns)

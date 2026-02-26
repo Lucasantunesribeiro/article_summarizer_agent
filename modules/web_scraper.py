@@ -363,23 +363,25 @@ class WebScraper:
         for selector in CONTENT_SELECTORS:
             elements = soup.select(selector)
             parts = [
-                el.get_text(separator=" ", strip=True)
+                el.get_text(separator="\n", strip=True)
                 for el in elements
                 if len(el.get_text(strip=True)) > 50
             ]
             if parts:
                 logger.debug("Content extracted via selector %r", selector)
-                return " ".join(parts)
+                # Separate blocks with double newlines so _advanced_cleaning
+                # can evaluate each line individually for navigation noise.
+                return "\n\n".join(parts)
         return ""
 
     def _extract_paragraph_content(self, soup: BeautifulSoup) -> str:
         paragraphs = soup.find_all(["p", "div"])
         parts = [
-            el.get_text(strip=True)
+            el.get_text(separator="\n", strip=True)
             for el in paragraphs
             if len(el.get_text(strip=True)) >= config.processing.min_paragraph_length
         ]
-        return " ".join(parts)
+        return "\n\n".join(parts)
 
     def _extract_with_newspaper(self, url: str) -> str:
         try:
