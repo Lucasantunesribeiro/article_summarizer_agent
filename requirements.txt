@@ -30,5 +30,5 @@ google-genai>=1.0.0
 # Only needed if you want JavaScript rendering support.
 # Does NOT include any stealth or WAF-bypass functionality.
 # Uncomment to enable:
-# selenium>=4.20.0
-# webdriver-manager>=4.0.1
+selenium>=4.20.0
+webdriver-manager>=4.0.1
