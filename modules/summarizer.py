@@ -130,10 +130,13 @@ class ExtractiveSummarizer:
                 "method_used": "extractive",
             }
 
-        tfidf_scores = self._tfidf_scores(sentences)
+        language = processed_data.get("language", "en")
+        stop_words = self._get_stop_words(language)
+
+        tfidf_scores = self._tfidf_scores(sentences, stop_words)
         position_scores = self._position_scores(sentences)
         length_scores = self._length_scores(sentences)
-        similarity_scores = self._similarity_scores(sentences)
+        similarity_scores = self._similarity_scores(sentences, stop_words)
 
         combined = self._combine_scores(
             tfidf_scores, position_scores, length_scores, similarity_scores
@@ -154,10 +157,35 @@ class ExtractiveSummarizer:
 
     # --- Scoring ---
 
-    def _tfidf_scores(self, sentences: list[str]) -> list[float]:
+    def _get_stop_words(self, language: str) -> str | list[str]:
+        """Return stop words appropriate for *language*.
+
+        sklearn's TfidfVectorizer only understands "english" as a string;
+        for other languages we pass a list from NLTK.
+        """
+        if language == "en":
+            return "english"
+        nltk_map = {
+            "pt": "portuguese",
+            "es": "spanish",
+            "fr": "french",
+            "de": "german",
+            "it": "italian",
+            "ru": "russian",
+        }
+        if language in nltk_map:
+            try:
+                from nltk.corpus import stopwords as _sw  # noqa: PLC0415
+
+                return list(_sw.words(nltk_map[language]))
+            except Exception as exc:
+                logger.debug("Could not load %s stopwords: %s", language, exc)
+        return "english"
+
+    def _tfidf_scores(self, sentences: list[str], stop_words: str | list[str] = "english") -> list[float]:
         try:
             vec = TfidfVectorizer(
-                stop_words="english",
+                stop_words=stop_words,
                 lowercase=True,
                 max_features=1000,
                 ngram_range=(1, 2),
@@ -197,10 +225,10 @@ class ExtractiveSummarizer:
                 scores.append(0.7)
         return scores
 
-    def _similarity_scores(self, sentences: list[str]) -> list[float]:
+    def _similarity_scores(self, sentences: list[str], stop_words: str | list[str] = "english") -> list[float]:
         try:
             doc = " ".join(sentences)
-            vec = TfidfVectorizer(stop_words="english", lowercase=True)
+            vec = TfidfVectorizer(stop_words=stop_words, lowercase=True)
             matrix = vec.fit_transform(sentences + [doc])
             sims = cosine_similarity(matrix[:-1], matrix[-1:]).flatten()
             return sims.tolist()

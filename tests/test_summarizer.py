@@ -84,3 +84,46 @@ class TestSummarizerDispatcher:
         result = s.summarize(PROCESSED_DATA)
         assert result["summary"]
         # No manual restore needed — monkeypatch auto-restores after test
+
+
+PT_SENTENCES = [
+    "A inteligência artificial está transformando muitas indústrias ao redor do mundo.",
+    "Algoritmos de aprendizado de máquina podem identificar padrões em grandes conjuntos de dados.",
+    "O processamento de linguagem natural permite que computadores entendam textos humanos.",
+    "Modelos de aprendizado profundo alcançaram desempenho super-humano em tarefas de imagem.",
+    "O aprendizado por reforço permite que agentes aprendam por tentativa e erro.",
+    "Aplicações de IA incluem saúde, finanças e veículos autônomos.",
+    "Considerações éticas são cada vez mais importantes no desenvolvimento de IA.",
+    "Pesquisadores trabalham para tornar os sistemas de IA mais transparentes e justos.",
+]
+
+PT_PROCESSED = {
+    "sentences": PT_SENTENCES,
+    "clean_text": " ".join(PT_SENTENCES),
+    "language": "pt",
+    "paragraphs": [" ".join(PT_SENTENCES)],
+    "statistics": {"word_count": 80, "sentence_count": 8},
+}
+
+
+class TestLanguageAwareStopWords:
+    @pytest.fixture
+    def summarizer(self):
+        return ExtractiveSummarizer()
+
+    def test_portuguese_stop_words_loaded(self, summarizer):
+        sw = summarizer._get_stop_words("pt")
+        assert isinstance(sw, list)
+        # Common Portuguese stopwords must be present
+        assert "de" in sw or "que" in sw
+
+    def test_english_returns_string(self, summarizer):
+        assert summarizer._get_stop_words("en") == "english"
+
+    def test_unknown_lang_falls_back_to_english(self, summarizer):
+        assert summarizer._get_stop_words("xx") == "english"
+
+    def test_portuguese_summary_produced(self, summarizer):
+        result = summarizer.summarize(PT_SENTENCES, PT_PROCESSED)
+        assert result["summary"]
+        assert len(result["selected_sentences"]) >= 1
