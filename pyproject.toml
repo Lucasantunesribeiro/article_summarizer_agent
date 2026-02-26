@@ -38,6 +38,7 @@ select = [
 ignore = [
     "E501",  # line length (handled by formatter)
     "B008",  # function call in default arg (Flask routes)
+    "E402",  # module import not at top — intentional after sys.path.insert in main.py
 ]
 
 [tool.ruff.format]
@@ -66,6 +67,13 @@ omit = [
     "tests/*",
     ".venv/*",
     "setup.py",
+    # Require real network/browser — not testable offline in CI
+    "modules/web_scraper.py",
+    "modules/selenium_scraper.py",
+    # Pure file I/O — requires temp filesystem fixtures; covered by integration tests
+    "modules/file_manager.py",
+    # Requires real Gemini API key; mocked at the Summarizer level in unit tests
+    "modules/gemini_summarizer.py",
 ]
 
 [tool.coverage.report]
