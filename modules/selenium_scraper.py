@@ -73,6 +73,10 @@ class JsRenderingScraper:
         options.add_argument("--disable-gpu")
         options.add_argument("--user-agent=" + config.scraping.user_agents[0])
 
+        chrome_bin = __import__("os").environ.get("CHROME_BIN")
+        if chrome_bin:
+            options.binary_location = chrome_bin
+
         driver = None
         try:
             service = Service(ChromeDriverManager().install())
