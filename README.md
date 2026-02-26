@@ -1,220 +1,613 @@
 # Article Summarizer Agent
 
-**A Python web application that extracts and summarises any web article — offline TF-IDF or Google Gemini, with a REST API and browser UI.**
+**Agente Python que extrai e resume artigos da web — TF-IDF offline ou Google Gemini, com API REST e interface no navegador.**
 
+[![CI](https://github.com/Lucasantunesribeiro/article_summarizer_agent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Lucasantunesribeiro/article_summarizer_agent/actions/workflows/ci.yml)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)
-![CI](https://img.shields.io/badge/CI-passing-brightgreen?style=flat-square)
-![Tests](https://img.shields.io/badge/tests-55%20passing-brightgreen?style=flat-square)
-
-> **Demo:** [screenshot placeholder — add to assets/]
 
 ---
 
-## Features
+## Sumário
 
-- **Dual summarisation modes** — extractive TF-IDF (fully offline, no API key) or Google Gemini (generative, high quality)
-- **Robust content extraction** — BeautifulSoup4 for standard pages, Selenium fallback for JavaScript-heavy sites
-- **SSRF protection** — blocks private CIDRs (127/8, 10/8, 172.16/12, 192.168/16, 169.254/16) and cloud metadata endpoints before any network call
-- **Per-IP rate limiting** — configurable fixed-window limiter built into Flask, no external dependency
-- **10 MB content cap** — hard limit on response body to prevent memory exhaustion
-- **Three output formats** — `.txt`, `.md`, `.json`, downloadable via the UI or API
-- **Async task pipeline** — POST a URL, get a `task_id`, poll for progress; no blocking the HTTP response
-- **Result cache** — on-disk cache (24 h TTL by default) avoids redundant fetches and Gemini API calls
-- **CLI + Web UI** — run headless from the terminal or use the Jinja2/Flask browser interface
-- **Fully env-var driven config** — every tunable exposed in `.env.example`; zero hard-coded secrets
+1. [Arquitetura e Stack Tecnológica](#arquitetura-e-stack-tecnológica)
+2. [Pré-requisitos e Instalação Local](#pré-requisitos-e-instalação-local)
+3. [Organização do Repositório](#organização-do-repositório)
+4. [Scripts de Teste e Build](#scripts-de-teste-e-build)
+5. [Variáveis de Ambiente](#variáveis-de-ambiente)
+6. [Referência da API](#referência-da-api)
+7. [Modelos Gemini](#modelos-gemini)
+8. [Deploy](#deploy)
+9. [Segurança](#segurança)
+10. [Contribuindo](#contribuindo)
 
 ---
 
-## Architecture
+## Arquitetura e Stack Tecnológica
+
+### Fluxo de dados
 
 ```mermaid
 flowchart LR
-    A([URL Input]) --> B{SSRF Check}
-    B -->|Blocked| C([Error])
-    B -->|Allowed| D[HTTP Fetch]
-    D -->|JS-heavy| E[Selenium Render]
-    D -->|Success| F[HTML Parse]
+    A([URL]) --> B{SSRF Guard}
+    B -->|bloqueado| C([Erro 400])
+    B -->|permitido| D[HTTP Scraper]
+    D -->|página JS-heavy| E[Selenium Render\nfallback local]
+    D -->|sucesso| F[Text Processor\nNLTK / BeautifulSoup4]
     E --> F
-    F --> G[Text Clean & Tokenise]
-    G --> H{Method?}
-    H -->|extractive| I[TF-IDF Ranking]
-    H -->|generative| J[Gemini API]
-    I --> K[Summary]
-    J --> K
-    K --> L[(txt / md / json)]
-    K --> M[(Cache)]
+    F --> G{Método?}
+    G -->|extractive| H[TF-IDF Ranker\nscikit-learn]
+    G -->|generative| I[Gemini API\ngoogle-genai]
+    H --> J[Resumo]
+    I --> J
+    J --> K[(txt / md / json\nFile Manager)]
+    J --> L[(Cache em disco\n24 h TTL)]
 ```
 
-**Key modules:**
+**Camada Flask — tarefas assíncronas via threads**
 
-| File | Responsibility |
-|---|---|
-| `main.py` | `ArticleSummarizerAgent` — orchestrates the full pipeline |
-| `app.py` | Flask REST API + Jinja2 web UI, background task runner, rate limiter |
-| `config.py` | Centralised config dataclasses; all settings overridable via env vars |
-| `modules/web_scraper.py` | HTTP fetch with SSRF guard + Selenium JS-render fallback |
-| `modules/gemini_summarizer.py` | Google Gemini integration via `google-genai` SDK |
-| `modules/summarizer.py` | Dispatcher — routes to Gemini or extractive TF-IDF |
-| `modules/text_processor.py` | NLTK-based cleaning, tokenisation, sentence scoring |
-| `modules/file_manager.py` | Writes output files, manages on-disk cache |
+```mermaid
+sequenceDiagram
+    participant C as Cliente
+    participant F as Flask API
+    participant T as Thread Pool
+    participant A as ArticleSummarizerAgent
+
+    C->>F: POST /api/sumarizar
+    F->>F: Rate limit check (por IP)
+    F->>T: Inicia thread (task_id)
+    F-->>C: 200 {task_id}
+    T->>A: agent.run(url, method, length)
+    A-->>T: resultado
+    T->>F: Atualiza _tasks[task_id]
+    C->>F: GET /api/tarefa/{task_id}
+    F-->>C: {status, resultado}
+```
+
+### Stack
+
+| Componente | Pacote | Versão mínima |
+|---|---|---|
+| Linguagem | Python | 3.10 |
+| Framework web | Flask | 3.0.0 |
+| Servidor WSGI | Gunicorn | 21.2.0 |
+| CORS | flask-cors | 4.0.0 |
+| IA generativa | google-genai | 1.0.0 |
+| Extração HTML | beautifulsoup4 | 4.12.0 |
+| HTTP | requests | 2.31.0 |
+| Encoding detection | chardet | 5.1.0 |
+| NLP / tokenização | nltk | 3.8.1 |
+| TF-IDF ranking | scikit-learn | 1.3.0 |
+| Detecção de idioma | langdetect | 1.0.9 |
+| Barra de progresso (CLI) | tqdm | 4.65.0 |
+| Cores no terminal (CLI) | colorama | 0.4.6 |
+
+> Selenium (`selenium>=4.20.0`) e `webdriver-manager>=4.0.1` são dependências **opcionais**, necessárias apenas localmente para renderização de páginas com JavaScript. Não são instaladas no Render/Cloud Run.
 
 ---
 
-## Quick Start
+## Pré-requisitos e Instalação Local
+
+**Requisitos do sistema:**
+
+- Python 3.10 ou superior
+- pip
+- Git
+- (Opcional) Docker para execução conteinerizada
+
+### Passo a passo
 
 ```bash
-# 1. Clone
+# 1. Clonar o repositório
 git clone https://github.com/Lucasantunesribeiro/article_summarizer_agent.git
 cd article_summarizer_agent
+```
 
-# 2. Install dependencies
-make setup          # creates .venv and runs pip install -r requirements.txt
+```bash
+# 2. Criar o ambiente virtual
 
-# 3. Configure
+# Linux / macOS
+python -m venv .venv
+source .venv/bin/activate
+
+# Windows (WSL)
+python -m venv .venv
+source .venv/bin/activate
+
+# Windows (Prompt / PowerShell nativo)
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+```bash
+# 3. Instalar dependências
+pip install -r requirements.txt
+
+# Instalar também as ferramentas de desenvolvimento
+pip install ruff pytest pytest-cov
+```
+
+```bash
+# 4. Baixar os dados do NLTK necessários em runtime
+python -c "
+import nltk
+for pkg in ('punkt', 'punkt_tab', 'stopwords', 'wordnet'):
+    nltk.download(pkg, quiet=True)
+"
+```
+
+```bash
+# 5. Configurar variáveis de ambiente
 cp .env.example .env
-# Edit .env — set GEMINI_API_KEY if you want generative summaries
-
-# 4. Run
-make run            # starts Flask on http://localhost:5000
+# Edite o arquivo .env com suas chaves — veja a seção Variáveis de Ambiente
 ```
 
-**CLI usage (headless):**
-
 ```bash
-python main.py --url "https://example.com/article" --method extractive --length medium
+# 6. Executar a aplicação web
+
+# Modo desenvolvimento (Flask dev server)
+python app.py
+# ou
+make run
+
+# Modo produção local (Gunicorn)
+gunicorn --bind 0.0.0.0:5000 --workers 2 --threads 4 --timeout 120 app:app
+# ou
+make run-prod
 ```
 
-**Run tests:**
+Acesse `http://localhost:5000` no navegador.
 
-```bash
-make test           # pytest — 55 tests
+**Saída esperada ao iniciar com sucesso:**
+
+```
+2026-02-26 10:00:00,000 - __main__ - INFO - Initialising ArticleSummarizerAgent…
+2026-02-26 10:00:00,100 - __main__ - INFO - Agent ready.
+2026-02-26 10:00:00,101 - __main__ - INFO - Starting on 0.0.0.0:5000 (debug=False)
 ```
 
-**Docker:**
+### Uso via CLI (headless)
+
+O agente pode ser executado diretamente pelo terminal, sem a interface web:
 
 ```bash
-make docker-build
-docker run -p 5000:5000 --env-file .env article-summarizer
+# Resumo básico com método padrão (extractive)
+python main.py --url "https://example.com/article"
+
+# Especificar método e tamanho do resumo
+python main.py --url "https://example.com/article" --method generative --length short
+python main.py --url "https://example.com/article" --method extractive --length long
+
+# Modo interativo (solicita URL no terminal)
+python main.py --interactive
+
+# Verificar status do agente e configuração ativa
+python main.py --status
+
+# Limpar o cache em disco
+python main.py --clear-cache
+```
+
+**Parâmetros do CLI:**
+
+| Parâmetro | Valores aceitos | Padrão |
+|---|---|---|
+| `--url` | URL válida (http/https) | — |
+| `--method` | `extractive`, `generative` | `extractive` |
+| `--length` | `short`, `medium`, `long` | `medium` |
+| `--interactive` | flag (sem valor) | — |
+| `--status` | flag (sem valor) | — |
+| `--clear-cache` | flag (sem valor) | — |
+
+---
+
+## Organização do Repositório
+
+```
+article_summarizer_agent/
+├── app.py                   # API Flask — rotas HTTP e gestão de tasks assíncronas
+├── main.py                  # CLI e orquestrador do pipeline (5 passos)
+├── config.py                # Singleton de configuração — todas as settings via env vars
+├── modules/
+│   ├── __init__.py
+│   ├── web_scraper.py       # Extração HTTP com proteção SSRF
+│   ├── text_processor.py    # Limpeza e tokenização de texto (NLTK)
+│   ├── summarizer.py        # Dispatcher: encaminha para Gemini ou TF-IDF
+│   ├── gemini_summarizer.py # Integração Google Gemini API (google-genai)
+│   ├── file_manager.py      # Salva resultados (txt/md/json) e cache em disco
+│   └── selenium_scraper.py  # Fallback JS rendering (opcional, apenas local)
+├── tests/
+│   ├── test_api.py          # Testes de rotas Flask (74 testes no total)
+│   ├── test_app_utils.py
+│   ├── test_config.py
+│   ├── test_ssrf.py
+│   ├── test_summarizer.py
+│   └── test_text_processor.py
+├── templates/               # Templates Jinja2 (index, history, about, settings, error)
+├── static/
+│   └── css/
+│       └── custom.css       # Estilos customizados da interface
+├── docs/                    # Guias de hospedagem (Render, Cloud Run)
+├── .github/
+│   └── workflows/
+│       └── ci.yml           # Pipeline CI: lint (ruff) + testes (pytest) + docker build
+├── Dockerfile               # Imagem Python 3.12-slim, Gunicorn na porta 8080
+├── render.yaml              # Configuração de deploy no Render
+├── render-build.sh          # Script de build para o Render
+├── Procfile                 # Comando de start para Heroku/Render
+├── pyproject.toml           # Configuração de ruff, pytest e coverage (versão 2.0.0)
+└── requirements.txt         # Dependências com versões mínimas fixadas
 ```
 
 ---
 
-## API Reference
+## Scripts de Teste e Build
 
-All endpoints return JSON. Async endpoints use a `task_id` for polling.
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/sumarizar` | Submit a URL for summarisation. Body: `{"url": "...", "method": "extractive\|generative", "length": "short\|medium\|long"}`. Returns `{task_id}`. |
-| `GET` | `/api/tarefa/<task_id>` | Poll task status and retrieve result when `status == "done"`. |
-| `GET` | `/api/download/<task_id>/<fmt>` | Download the output file. `fmt` is `txt`, `md`, or `json`. |
-| `GET` | `/health` | Liveness check. Returns agent status, active Gemini model, and summarisation method. |
-| `GET` | `/api/status` | Detailed agent status. |
-| `GET` | `/api/estatisticas` | Session-level counters (total, done, failed, running tasks). |
-
-**Example — submit and poll:**
+### Usando Make (recomendado)
 
 ```bash
-# Submit
+# Ver todos os targets disponíveis
+make help
+
+# Criar virtualenv e instalar tudo (incluindo ferramentas de dev)
+make setup
+
+# Instalar/sincronizar dependências (virtualenv já criado)
+make install
+
+# Executar a suíte de testes
+make test
+
+# Testes com relatório de cobertura
+make test-cov
+
+# Lint (verificar)
+make lint
+
+# Formatar o código
+make format
+
+# Lint com correção automática de problemas seguros
+make lint-fix
+
+# Executar a aplicação web em modo desenvolvimento
+make run
+
+# Executar com Gunicorn (simula produção localmente)
+make run-prod
+
+# Executar via CLI (passar URL como variável)
+make run-cli URL="https://example.com/article"
+
+# Build da imagem Docker
+make docker-build
+
+# Executar o container Docker (requer .env)
+make docker-run
+
+# Limpar artefatos de build e cache
+make clean
+```
+
+### Comandos diretos (sem Make)
+
+```bash
+# Executar todos os testes com saída detalhada
+pytest tests/ -v
+
+# Testes com cobertura de código
+pytest tests/ --cov=modules --cov-report=term-missing
+
+# Cobertura com threshold mínimo (falha abaixo de 60%)
+pytest tests/ --cov=modules --cov-report=term-missing --cov-fail-under=60
+
+# Lint — verificar problemas de estilo e qualidade
+ruff check .
+
+# Verificar formatação (não altera arquivos)
+ruff format --check .
+
+# Aplicar formatação
+ruff format .
+```
+
+### Docker
+
+```bash
+# Build da imagem
+docker build -t article-summarizer .
+
+# Executar o container expondo a porta 5000
+docker run -p 5000:8080 -e GEMINI_API_KEY=sua_chave_aqui -e SECRET_KEY=sua_chave_secreta article-summarizer
+
+# Executar com arquivo .env
+docker run -p 5000:8080 --env-file .env article-summarizer
+
+# Docker Compose (se disponível)
+make docker-compose-up
+```
+
+> O Dockerfile expõe a porta `8080` (padrão do Cloud Run). O mapeamento `-p 5000:8080` no `docker run` redireciona para `localhost:5000`.
+
+### Pipeline CI (GitHub Actions)
+
+O arquivo `.github/workflows/ci.yml` executa três jobs em paralelo a cada push ou pull request para `main`:
+
+| Job | O que faz |
+|---|---|
+| `lint` | `ruff check .` e `ruff format --check .` no Python 3.12 |
+| `test` | `pytest tests/ -v --cov=modules` no Python 3.12 com NLTK data baixado |
+| `docker-build` | `docker build -t article-summarizer:ci .` para validar o Dockerfile |
+
+---
+
+## Variáveis de Ambiente
+
+Copie `.env.example` para `.env` e ajuste conforme o ambiente:
+
+```bash
+cp .env.example .env
+```
+
+### Referência completa
+
+| Variável | Obrigatório | Padrão | Descrição |
+|---|---|---|---|
+| `SECRET_KEY` | Sim (produção) | gerado automaticamente em dev | Chave secreta do Flask para sessões. Use uma string longa e aleatória em produção. |
+| `GEMINI_API_KEY` | Sim (generative) | — | Chave da [Google AI Studio](https://aistudio.google.com/apikey). Necessária apenas com `SUMMARIZATION_METHOD=generative`. |
+| `GEMINI_MODEL_ID` | Não | `gemini-2.5-flash-preview-05-20` | ID do modelo Gemini. Veja a seção [Modelos Gemini](#modelos-gemini). |
+| `GEMINI_TIMEOUT` | Não | `30` | Timeout em segundos para chamadas à API do Gemini. |
+| `SUMMARIZATION_METHOD` | Não | `extractive` | Método padrão de resumo: `extractive` (TF-IDF offline) ou `generative` (Gemini). |
+| `SUMMARY_LENGTH` | Não | `medium` | Tamanho padrão do resumo: `short`, `medium` ou `long`. |
+| `RATE_LIMIT_MAX` | Não | `10` | Número máximo de requisições por IP dentro da janela de tempo. |
+| `RATE_LIMIT_WINDOW` | Não | `60` | Duração da janela de rate limit em segundos. |
+| `ADMIN_TOKEN` | Sim (produção) | — | Token de autenticação para o endpoint `POST /api/limpar-cache`. Enviado no header `X-Admin-Token`. |
+| `OUTPUT_DIR` | Não | `outputs` | Diretório onde os arquivos de resumo são gravados. |
+| `CACHE_ENABLED` | Não | `true` | Habilita ou desabilita o cache em disco. Valores: `true` ou `false`. |
+| `CACHE_TTL` | Não | `86400` | Tempo de vida do cache em segundos (padrão: 24 horas). |
+| `TIMEOUT_SCRAPING` | Não | `30` | Timeout de requisições HTTP do scraper em segundos. |
+| `MAX_RETRIES_SCRAPING` | Não | `3` | Número máximo de tentativas em caso de falha no scraping. |
+| `LOG_LEVEL` | Não | `INFO` | Nível de log: `DEBUG`, `INFO`, `WARNING`, `ERROR` ou `CRITICAL`. |
+| `CORS_ORIGINS` | Não | `*` | Origens CORS permitidas para `/api/*`. Separe múltiplas origens por vírgula. |
+| `FLASK_DEBUG` | Não | `false` | Habilita o modo debug do Flask. **Nunca defina como `true` em produção.** |
+| `PORT` | Não | `5000` | Porta onde o servidor Flask/Gunicorn escuta. Definida automaticamente pelo Render e Cloud Run. |
+
+### Template `.env`
+
+```dotenv
+# ── Segurança ─────────────────────────────────────────────────────────────────
+SECRET_KEY=sua_chave_secreta_longa_e_aleatoria_aqui
+ADMIN_TOKEN=seu_token_admin_aqui
+
+# ── Google Gemini ─────────────────────────────────────────────────────────────
+GEMINI_API_KEY=sua_chave_gemini_aqui
+GEMINI_MODEL_ID=gemini-2.5-flash-preview-05-20
+GEMINI_TIMEOUT=30
+
+# ── Sumarização ───────────────────────────────────────────────────────────────
+SUMMARIZATION_METHOD=extractive
+SUMMARY_LENGTH=medium
+
+# ── Rate Limiting ─────────────────────────────────────────────────────────────
+RATE_LIMIT_MAX=10
+RATE_LIMIT_WINDOW=60
+
+# ── Saída e Cache ─────────────────────────────────────────────────────────────
+OUTPUT_DIR=outputs
+CACHE_ENABLED=true
+CACHE_TTL=86400
+
+# ── Scraping ──────────────────────────────────────────────────────────────────
+TIMEOUT_SCRAPING=30
+MAX_RETRIES_SCRAPING=3
+
+# ── Observabilidade ───────────────────────────────────────────────────────────
+LOG_LEVEL=INFO
+
+# ── CORS ──────────────────────────────────────────────────────────────────────
+CORS_ORIGINS=*
+
+# ── Flask ─────────────────────────────────────────────────────────────────────
+# FLASK_DEBUG=false  # Nunca defina como true em produção
+```
+
+> ⚠️ Nunca versione o arquivo `.env` com valores reais. O `.gitignore` já exclui esse arquivo do repositório.
+
+> 💡 No Render, configure as variáveis no painel **Environment** do serviço. `CHROME_BIN` não é necessário — Selenium não é suportado no free tier e o agente realiza fallback automático para HTTP simples.
+
+---
+
+## Referência da API
+
+Todos os endpoints retornam JSON. Os endpoints assíncronos usam `task_id` para polling.
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `POST` | `/api/sumarizar` | Envia uma URL para sumarização. Retorna `{task_id}` imediatamente. |
+| `GET` | `/api/tarefa/<task_id>` | Consulta o status e o resultado da tarefa quando `status == "done"`. |
+| `GET` | `/api/download/<task_id>/<fmt>` | Download do arquivo de saída. `fmt` aceita `txt`, `md` ou `json`. |
+| `GET` | `/health` | Verificação de saúde. Retorna status do agente, modelo Gemini ativo e método de sumarização. |
+| `GET` | `/api/status` | Status detalhado do agente. |
+| `GET` | `/api/estatisticas` | Contadores da sessão (total, concluídas, falhas, em execução). |
+| `POST` | `/api/limpar-cache` | Limpa o cache em disco. Requer header `X-Admin-Token`. |
+
+### Exemplos de uso
+
+**Enviar URL e acompanhar o resultado:**
+
+```bash
+# 1. Submeter URL para sumarização
 curl -s -X POST http://localhost:5000/api/sumarizar \
   -H "Content-Type: application/json" \
   -d '{"url": "https://example.com/article", "method": "generative", "length": "medium"}' \
-  | jq .
+  | python -m json.tool
 
-# Poll until status == "done"
-curl -s http://localhost:5000/api/tarefa/<task_id> | jq .task.status
-
-# Download markdown
-curl -OJ http://localhost:5000/api/download/<task_id>/md
+# Saída esperada:
+# {
+#   "success": true,
+#   "task_id": "550e8400-e29b-41d4-a716-446655440000",
+#   "message": "Summarisation started."
+# }
 ```
 
+```bash
+# 2. Consultar o status da tarefa
+curl -s http://localhost:5000/api/tarefa/550e8400-e29b-41d4-a716-446655440000 \
+  | python -m json.tool
+
+# Saída quando concluído:
+# {
+#   "success": true,
+#   "task": {
+#     "status": "done",
+#     "progress": 100,
+#     "result": {
+#       "summary": "...",
+#       "method_used": "generative",
+#       "execution_time": 3.2
+#     }
+#   }
+# }
+```
+
+```bash
+# 3. Download do resumo em Markdown
+curl -OJ http://localhost:5000/api/download/550e8400-e29b-41d4-a716-446655440000/md
+```
+
+```bash
+# 4. Limpar o cache (requer ADMIN_TOKEN configurado)
+curl -s -X POST http://localhost:5000/api/limpar-cache \
+  -H "X-Admin-Token: seu_token_admin_aqui" \
+  | python -m json.tool
+```
+
+```bash
+# 5. Verificação de saúde
+curl -s http://localhost:5000/health | python -m json.tool
+
+# Saída esperada:
+# {
+#   "status": "ok",
+#   "agent_ready": true,
+#   "gemini_model": "gemini-2.5-flash-preview-05-20",
+#   "summarization_method": "extractive"
+# }
+```
+
+**Corpo da requisição `POST /api/sumarizar`:**
+
+```json
+{
+  "url": "https://example.com/article",
+  "method": "extractive",
+  "length": "medium"
+}
+```
+
+| Campo | Tipo | Obrigatório | Valores |
+|---|---|---|---|
+| `url` | string | Sim | URL válida (http ou https) |
+| `method` | string | Não | `extractive` (padrão) ou `generative` |
+| `length` | string | Não | `short`, `medium` (padrão) ou `long` |
+
 ---
 
-## Environment Variables
+## Modelos Gemini
 
-Copy `.env.example` and override as needed.
+O parâmetro `GEMINI_MODEL_ID` seleciona o modelo usado nas sumarizações generativas:
 
-| Variable | Default | Description |
-|---|---|---|
-| `GEMINI_API_KEY` | _(empty)_ | Google Gemini API key. Required when `SUMMARIZATION_METHOD=generative`. |
-| `SUMMARIZATION_METHOD` | `extractive` | `extractive` (offline TF-IDF) or `generative` (Gemini). |
-| `GEMINI_MODEL_ID` | `gemini-2.5-flash-preview-05-20` | Gemini model to use. See section below. |
-| `SECRET_KEY` | _(required in prod)_ | Flask session secret. Must be a long random string in production. |
-| `PORT` | `5000` | Port the Flask/Gunicorn server binds to. |
-| `RATE_LIMIT_MAX` | `10` | Max requests per IP per window (default window: 60 s). |
-| `RATE_LIMIT_WINDOW` | `60` | Rate-limit window in seconds. |
-| `CACHE_ENABLED` | `true` | Enable/disable on-disk result cache. |
-| `CACHE_TTL` | `86400` | Cache TTL in seconds (24 h). |
-| `OUTPUT_DIR` | `outputs` | Directory where summary files are written. |
-| `TIMEOUT_SCRAPING` | `30` | HTTP request timeout in seconds. |
-| `CORS_ORIGINS` | `*` | Comma-separated allowed CORS origins for `/api/*`. |
-| `FLASK_DEBUG` | `false` | Enable Flask debug mode. Never set to `true` in production. |
-
----
-
-## Gemini Models
-
-The `GEMINI_MODEL_ID` env var selects the model. Recommended options:
-
-| Model ID | Characteristics |
+| Model ID | Características |
 |---|---|
-| `gemini-2.5-flash-preview-05-20` | Default. Fast, low-latency, cost-effective. |
-| `gemini-2.5-pro-preview-05-06` | Higher quality, longer context, higher cost. |
-| `gemini-1.5-flash` | Stable GA release, good balance of speed and quality. |
+| `gemini-2.5-flash-preview-05-20` | Padrão. Rápido, baixa latência, custo-efetivo. |
+| `gemini-2.5-pro-preview-05-06` | Maior qualidade, contexto longo, custo mais elevado. |
+| `gemini-1.5-flash` | Release estável GA, bom equilíbrio entre velocidade e qualidade. |
 
-See the full list at [ai.google.dev/gemini-api/docs/models](https://ai.google.dev/gemini-api/docs/models).
+Consulte a lista completa em [ai.google.dev/gemini-api/docs/models](https://ai.google.dev/gemini-api/docs/models).
 
-If `GEMINI_API_KEY` is not set or the Gemini call fails, the agent automatically falls back to extractive TF-IDF (configurable via `use_fallback` in `config.py`).
+Se `GEMINI_API_KEY` não estiver definida ou se a chamada ao Gemini falhar, o agente realiza fallback automático para TF-IDF extractivo (comportamento controlado por `use_fallback` em `config.py`).
 
 ---
 
 ## Deploy
 
-### Cloud Run (recommended)
+### Render (free tier)
+
+O arquivo `render.yaml` está pré-configurado. Para fazer o deploy:
+
+1. Faça push do repositório para o GitHub.
+2. Acesse [render.com](https://render.com) e crie um novo **Web Service** apontando para o repositório.
+3. O Render detecta automaticamente o `render.yaml` e usa:
+   - Build command: `./render-build.sh` (executa `pip install -r requirements.txt`)
+   - Start command: `gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120 app:app`
+   - Python: `3.13.0`
+4. Configure as variáveis de ambiente no painel **Environment** do serviço.
+
+> ⚠️ No free tier do Render, Selenium não está disponível (Chrome ausente). O agente realiza fallback automático para extração HTTP simples.
+
+**Variáveis mínimas para o Render:**
+
+```
+SECRET_KEY      = <string longa e aleatória>
+ADMIN_TOKEN     = <string aleatória>
+GEMINI_API_KEY  = <sua chave — somente se usar method=generative>
+```
+
+### Google Cloud Run
 
 ```bash
+# Deploy direto a partir do código-fonte (requer gcloud CLI autenticado)
 gcloud run deploy article-summarizer \
   --source . \
   --region us-central1 \
   --allow-unauthenticated \
-  --set-env-vars GEMINI_API_KEY=...,SECRET_KEY=...,SUMMARIZATION_METHOD=generative
+  --set-env-vars "GEMINI_API_KEY=sua_chave,SECRET_KEY=sua_chave_secreta,SUMMARIZATION_METHOD=generative"
 ```
 
-The included `Dockerfile` runs Gunicorn with `PORT` bound to the Cloud Run-injected environment variable.
+O `Dockerfile` incluído usa `python:3.12-slim`, executa Gunicorn com `--bind 0.0.0.0:8080` e cria um usuário não-root `appuser` para segurança em produção.
 
-### Render (free tier)
+### Docker (qualquer provedor)
 
-1. Push the repo to GitHub.
-2. Create a new **Web Service** on [render.com](https://render.com), point it at the repo.
-3. Set build command: `pip install -r requirements.txt`
-4. Set start command: `gunicorn app:app --bind 0.0.0.0:$PORT`
-5. Add environment variables in the Render dashboard.
+```bash
+# Build
+docker build -t article-summarizer .
 
----
-
-## Safety & Compliance
-
-This project is designed for **legitimate, authorised content retrieval only**.
-
-- **No WAF bypass techniques** — the codebase does not contain stealth browser automation, fingerprint spoofing, CAPTCHA solvers, or any other mechanism intended to circumvent access controls. Any such code present in earlier commits has been removed.
-- **SSRF protection** — all URLs are resolved and checked against a blocked CIDR list (loopback, RFC-1918 private ranges, link-local, IPv6 equivalents, and cloud metadata endpoints) before any outbound request is made.
-- **SSL verification always on** — TLS certificates are verified on every request; verification cannot be disabled via configuration.
-- **robots.txt and ToS** — users are responsible for ensuring the URLs they submit are publicly accessible and that their use complies with the target site's `robots.txt` and Terms of Service.
-- **Content-size cap** — responses are truncated at 10 MB to prevent resource exhaustion.
-
-Please report security concerns via [SECURITY.md](SECURITY.md).
+# Executar
+docker run -p 5000:8080 \
+  -e SECRET_KEY=sua_chave_secreta \
+  -e GEMINI_API_KEY=sua_chave_gemini \
+  -e SUMMARIZATION_METHOD=generative \
+  article-summarizer
+```
 
 ---
 
-## Contributing
+## Segurança
 
-1. Fork the repo and create a feature branch.
-2. Run `make test` and ensure all 55 tests pass before opening a pull request.
-3. For security issues, follow the disclosure process in [SECURITY.md](SECURITY.md).
+Este projeto é desenvolvido para **extração legítima de conteúdo público**.
+
+- **Proteção SSRF** — todas as URLs são resolvidas e verificadas contra CIDRs bloqueados (loopback `127/8`, RFC-1918 privados `10/8`, `172.16/12`, `192.168/16`, link-local `169.254/16`, CGNAT `100.64/10` e equivalentes IPv6) antes de qualquer requisição de rede.
+- **Sem técnicas de bypass** — o código não contém automação furtiva de navegador, falsificação de fingerprint ou resolvedores de CAPTCHA.
+- **Verificação SSL sempre ativa** — certificados TLS são verificados em todas as requisições; não há configuração para desativar essa verificação.
+- **Limite de 10 MB** — respostas HTTP são truncadas a 10 MB para evitar esgotamento de memória.
+- **Rate limiting por IP** — limitador de janela fixa embutido no Flask, sem dependência externa.
+- **Cabeçalhos de segurança** — todas as respostas incluem `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` e `Content-Security-Policy`.
+- **ADMIN_TOKEN fail-closed** — o endpoint `/api/limpar-cache` nega acesso quando `ADMIN_TOKEN` não está definido.
+
+Relate problemas de segurança conforme o processo descrito em [SECURITY.md](SECURITY.md).
 
 ---
 
-## License
+## Contribuindo
 
-[MIT](LICENSE) — free to use, modify, and distribute with attribution.
+1. Faça um fork do repositório e crie uma branch de feature a partir de `main`.
+2. Execute `make test` e garanta que todos os 74 testes passam antes de abrir um pull request.
+3. Execute `make lint` — o CI bloqueia merges com falhas de lint.
+4. Documente variáveis de ambiente novas em `.env.example` e neste README.
+5. Para problemas de segurança, siga o processo de divulgação em [SECURITY.md](SECURITY.md).
+
+---
+
+## Licença
+
+[MIT](LICENSE) — livre para usar, modificar e distribuir com atribuição.
