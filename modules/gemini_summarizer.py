@@ -49,8 +49,13 @@ except ImportError:
 _SYSTEM_PROMPT = textwrap.dedent("""\
     You are a professional article summariser.
     Your task is to produce a clear, factual, and neutral summary of the
-    provided article text. Do not add opinions or information not present
-    in the original text.
+    provided article text.
+    Rules:
+    - Write complete, well-formed sentences. Never start a sentence with a
+      number, a reference marker (e.g. "3)"), or a fragment.
+    - Do not reproduce reference lists, footnotes, or navigation text.
+    - Do not add opinions or information not present in the original text.
+    - Write in the same language as the article.
 """)
 
 _LENGTH_INSTRUCTIONS: dict[str, str] = {
@@ -97,10 +102,12 @@ class GeminiSummarizer:
             summary_length, _LENGTH_INSTRUCTIONS["medium"]
         )
 
-        clean_text: str = processed_data.get("clean_text", "")
-        if not clean_text.strip():
-            sentences = processed_data.get("sentences", [])
-            clean_text = " ".join(sentences)
+        # Prefer filtered sentences over raw clean_text so that
+        # navigation noise, numbered reference fragments, and other
+        # artefacts caught by _is_valid_sentence are excluded from
+        # the Gemini prompt.
+        sentences: list[str] = processed_data.get("sentences", [])
+        clean_text = " ".join(sentences) if sentences else processed_data.get("clean_text", "")
 
         if not clean_text.strip():
             raise ValueError("No text available for summarisation.")

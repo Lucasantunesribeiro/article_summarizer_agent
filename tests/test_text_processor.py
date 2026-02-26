@@ -77,3 +77,34 @@ class TestEdgeCases:
         text = "This is a complete sentence. And here is another one about AI."
         result = processor.process_text(text)
         assert len(result["sentences"]) >= 1
+
+
+class TestSentenceFiltering:
+    """Verify that noise patterns are correctly rejected by _is_valid_sentence."""
+
+    def test_numbered_reference_fragment_filtered(self, processor):
+        """Sentences like '3) de 2025 do periódico...' must be excluded."""
+        text = (
+            "This article presents new research on climate change. "
+            "3) de 2025 do periódico Saúde e Sociedade, o dossiê reúne pesquisas. "
+            "Scientists have identified key contributing factors to global warming. "
+            "1. Another numbered item that should be excluded from the summary. "
+            "The findings have significant implications for public policy worldwide."
+        )
+        result = processor.process_text(text)
+        sentences = result["sentences"]
+        for s in sentences:
+            assert not s.strip().startswith(("3)", "1.")), (
+                f"Numbered fragment leaked into sentences: {s!r}"
+            )
+
+    def test_copyright_line_filtered(self, processor):
+        text = (
+            "This is the main content of the article about technology. "
+            "Copyright 2025 All rights reserved. "
+            "The research was conducted over several years by the team."
+        )
+        result = processor.process_text(text)
+        sentences = result["sentences"]
+        for s in sentences:
+            assert "copyright" not in s.lower(), f"Copyright line leaked: {s!r}"

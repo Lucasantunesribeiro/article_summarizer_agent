@@ -305,13 +305,15 @@ class TextProcessor:
         if alpha_count / len(sentence) < 0.3:
             return False
 
-        # Skip sentences that look like navigation or UI elements
+        # Skip sentences that look like navigation, UI, or reference list items
         ui_patterns = [
             # English navigation
             r"^(click|select|choose|enter|submit|login|register|home|about|contact|menu)",
             r"(copyright|©|\(c\))",
             r"^(next|previous|back|forward|up|down)$",
             r"^[0-9\s\-/]+$",
+            # Numbered reference / footnote items: "3) de 2025...", "1. texto..."
+            r"^\d+[\)\.]\s",
             # Portuguese UI / marketplace / book-store patterns
             r"^(obter|comprar|encontrar|procure|ir para|adicionar|ver todos|baixar|acessar)\b",
             r"^(livraria|editora|publicado por|publicada por|sobre este|sobre o livro)\b",
