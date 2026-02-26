@@ -27,8 +27,8 @@ google-genai>=1.0.0
 # newspaper3k>=0.2.8
 
 # ── Optional: JS rendering (for SPA/JS-heavy pages) ──────────────────────────
-# Only needed if you want JavaScript rendering support.
-# Does NOT include any stealth or WAF-bypass functionality.
-# Uncomment to enable:
-selenium>=4.20.0
-webdriver-manager>=4.0.1
+# Only needed locally if you want JavaScript rendering support.
+# NOT installed on Render/Cloud Run — Chrome is unavailable in standard PaaS.
+# To enable locally: pip install selenium webdriver-manager
+# selenium>=4.20.0
+# webdriver-manager>=4.0.1
