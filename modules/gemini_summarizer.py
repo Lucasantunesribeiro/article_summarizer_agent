@@ -54,9 +54,9 @@ _SYSTEM_PROMPT = textwrap.dedent("""\
 """)
 
 _LENGTH_INSTRUCTIONS: dict[str, str] = {
-    "short":  "Write a concise summary in 2–3 sentences.",
+    "short": "Write a concise summary in 2–3 sentences.",
     "medium": "Write a balanced summary in 4–6 sentences covering the main points.",
-    "long":   "Write a detailed summary in 8–10 sentences preserving key details.",
+    "long": "Write a detailed summary in 8–10 sentences preserving key details.",
 }
 
 
@@ -81,9 +81,7 @@ class GeminiSummarizer:
         self._model_id = config.gemini.model_id
         logger.info("GeminiSummarizer initialised with model %r", self._model_id)
 
-    def summarize(
-        self, processed_data: dict, length: str | None = None
-    ) -> dict:
+    def summarize(self, processed_data: dict, length: str | None = None) -> dict:
         """Generate a summary from processed text data.
 
         Args:
@@ -116,11 +114,7 @@ class GeminiSummarizer:
                 config.gemini.max_input_chars,
             )
 
-        prompt = (
-            f"{_SYSTEM_PROMPT}\n"
-            f"{length_instruction}\n\n"
-            f"Article text:\n\n{truncated}"
-        )
+        prompt = f"{_SYSTEM_PROMPT}\n{length_instruction}\n\nArticle text:\n\n{truncated}"
 
         logger.info(
             "Requesting Gemini summary — model=%r length=%r chars=%d",

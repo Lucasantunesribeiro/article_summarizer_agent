@@ -1,6 +1,7 @@
 """
 Tests for SSRF protection in modules/web_scraper.py
 """
+
 import pytest
 
 from modules.web_scraper import _check_ssrf

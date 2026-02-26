@@ -5,6 +5,7 @@ Tests for config.py — attribute names, defaults, and env-var overrides.
 
 def test_config_has_english_attributes():
     from config import config
+
     # All modules expect these — test they all exist
     assert hasattr(config, "scraping")
     assert hasattr(config, "processing")
@@ -18,6 +19,7 @@ def test_config_has_english_attributes():
 
 def test_scraping_config_defaults():
     from config import config
+
     assert config.scraping.timeout > 0
     assert config.scraping.max_retries > 0
     assert config.scraping.max_content_bytes > 0
@@ -34,6 +36,7 @@ def test_constants_are_exported():
         SUPPORTED_LANGUAGES,
         UNWANTED_SELECTORS,
     )
+
     assert isinstance(CONTENT_SELECTORS, list)
     assert len(CONTENT_SELECTORS) > 0
     assert "article" in CONTENT_SELECTORS
@@ -47,6 +50,7 @@ def test_constants_are_exported():
 
 def test_gemini_config_has_model_id():
     from config import config
+
     assert config.gemini.model_id  # not empty
     assert config.gemini.max_output_tokens > 0
     assert config.gemini.max_input_chars > 0
@@ -54,6 +58,7 @@ def test_gemini_config_has_model_id():
 
 def test_output_config_defaults():
     from config import config
+
     assert "txt" in config.output.formats
     assert "md" in config.output.formats
     assert "json" in config.output.formats
@@ -62,6 +67,7 @@ def test_output_config_defaults():
 
 def test_rate_limit_config():
     from config import config
+
     assert config.rate_limit.max_requests > 0
     assert config.rate_limit.window_seconds > 0
 

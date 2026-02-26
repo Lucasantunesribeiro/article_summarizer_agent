@@ -53,8 +53,7 @@ _secret = os.getenv("SECRET_KEY")
 if not _secret:
     if os.getenv("FLASK_DEBUG", "false").lower() != "true":
         raise RuntimeError(
-            "SECRET_KEY env var is required in production. "
-            "Set it to a long random string."
+            "SECRET_KEY env var is required in production. Set it to a long random string."
         )
     _secret = secrets.token_urlsafe(32)
     logger.warning("SECRET_KEY not set — using ephemeral key (dev mode only).")
@@ -62,13 +61,16 @@ if not _secret:
 app.config["SECRET_KEY"] = _secret
 
 _allowed_origins = os.environ.get("CORS_ORIGINS", "*").split(",")
-CORS(app, resources={
-    r"/api/*": {
-        "origins": _allowed_origins,
-        "methods": ["GET", "POST", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"],
-    }
-})
+CORS(
+    app,
+    resources={
+        r"/api/*": {
+            "origins": _allowed_origins,
+            "methods": ["GET", "POST", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+        }
+    },
+)
 
 # ---------------------------------------------------------------------------
 # In-memory task store
@@ -105,6 +107,7 @@ def _check_rate_limit(ip: str) -> bool:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _validate_url(url: str) -> bool:
     try:
@@ -167,12 +170,12 @@ if not _agent_ready:
 # Background task runner
 # ---------------------------------------------------------------------------
 
+
 def _run_summarisation(task_id: str, url: str, method: str, length: str) -> None:
     try:
         with _lock:
             _tasks[task_id].update(
-                {"status": "processing", "progress": 10,
-                 "message": "Extracting article content…"}
+                {"status": "processing", "progress": 10, "message": "Extracting article content…"}
             )
 
         result = _agent.run(url, method=method, length=length)  # type: ignore[union-attr]
@@ -180,13 +183,20 @@ def _run_summarisation(task_id: str, url: str, method: str, length: str) -> None
         with _lock:
             if result.get("success"):
                 _tasks[task_id].update(
-                    {"status": "done", "progress": 100,
-                     "message": "Done!", "finished_at": datetime.now().isoformat()}
+                    {
+                        "status": "done",
+                        "progress": 100,
+                        "message": "Done!",
+                        "finished_at": datetime.now().isoformat(),
+                    }
                 )
             else:
                 _tasks[task_id].update(
-                    {"status": "failed", "progress": 0,
-                     "message": result.get("error", "Unknown error")}
+                    {
+                        "status": "failed",
+                        "progress": 0,
+                        "message": result.get("error", "Unknown error"),
+                    }
                 )
             _results[task_id] = result
 
@@ -194,8 +204,7 @@ def _run_summarisation(task_id: str, url: str, method: str, length: str) -> None
         logger.error("Task %s failed: %s", task_id, exc)
         with _lock:
             _tasks[task_id].update(
-                {"status": "error", "progress": 0,
-                 "message": f"Internal error: {exc}"}
+                {"status": "error", "progress": 0, "message": f"Internal error: {exc}"}
             )
             _results[task_id] = {"success": False, "error": str(exc)}
     finally:
@@ -205,6 +214,7 @@ def _run_summarisation(task_id: str, url: str, method: str, length: str) -> None
 # ---------------------------------------------------------------------------
 # HTML routes
 # ---------------------------------------------------------------------------
+
 
 @app.route("/")
 def index():
@@ -240,19 +250,22 @@ def settings():
 # API routes
 # ---------------------------------------------------------------------------
 
+
 @app.route("/api/sumarizar", methods=["POST"])
 def api_summarise():
     """POST {url, method?, length?} → {success, task_id}"""
     # Rate limit
     client_ip = request.remote_addr or "unknown"
     if not _check_rate_limit(client_ip):
-        return jsonify({
-            "success": False,
-            "error": (
-                f"Rate limit exceeded: max {config.rate_limit.max_requests} requests "
-                f"per {config.rate_limit.window_seconds}s."
-            ),
-        }), 429
+        return jsonify(
+            {
+                "success": False,
+                "error": (
+                    f"Rate limit exceeded: max {config.rate_limit.max_requests} requests "
+                    f"per {config.rate_limit.window_seconds}s."
+                ),
+            }
+        ), 429
 
     if not _agent_ready:
         return jsonify({"success": False, "error": "Service unavailable."}), 503
@@ -267,28 +280,32 @@ def api_summarise():
 
     method = data.get("method", "extractive").lower()
     if method not in ("extractive", "generative"):
-        return jsonify({
-            "success": False,
-            "error": 'method must be "extractive" or "generative".',
-        }), 400
+        return jsonify(
+            {
+                "success": False,
+                "error": 'method must be "extractive" or "generative".',
+            }
+        ), 400
 
     length = data.get("length", "medium").lower()
     if length not in ("short", "medium", "long"):
-        return jsonify({
-            "success": False,
-            "error": 'length must be "short", "medium", or "long".',
-        }), 400
+        return jsonify(
+            {
+                "success": False,
+                "error": 'length must be "short", "medium", or "long".',
+            }
+        ), 400
 
     task_id = str(uuid.uuid4())
     with _lock:
         _tasks[task_id] = {
-            "status":     "queued",
-            "progress":   0,
-            "message":    "Queued…",
+            "status": "queued",
+            "progress": 0,
+            "message": "Queued…",
             "created_at": datetime.now().isoformat(),
-            "url":        url,
-            "method":     method,
-            "length":     length,
+            "url": url,
+            "method": method,
+            "length": length,
         }
 
     thread = threading.Thread(
@@ -299,11 +316,13 @@ def api_summarise():
     thread.start()
 
     logger.info("Task %s started: %s", task_id, url)
-    return jsonify({
-        "success": True,
-        "task_id": task_id,
-        "message": "Summarisation started.",
-    })
+    return jsonify(
+        {
+            "success": True,
+            "task_id": task_id,
+            "message": "Summarisation started.",
+        }
+    )
 
 
 @app.route("/api/tarefa/<task_id>", methods=["GET"])
@@ -316,11 +335,11 @@ def api_task_status(task_id: str):
         if info["status"] == "done" and task_id in _results:
             r = _results[task_id]
             info["result"] = {
-                "summary":        r.get("summary", ""),
-                "statistics":     r.get("statistics", {}),
-                "method_used":    r.get("method_used", ""),
+                "summary": r.get("summary", ""),
+                "statistics": r.get("statistics", {}),
+                "method_used": r.get("method_used", ""),
                 "execution_time": r.get("execution_time", 0),
-                "files_created":  r.get("files_created", {}),
+                "files_created": r.get("files_created", {}),
             }
 
     return jsonify({"success": True, "task": info})
@@ -338,17 +357,18 @@ def api_download(task_id: str, fmt: str):
 
     files = result.get("files_created", {})
     if fmt not in files:
-        return jsonify({
-            "success": False,
-            "error": f"Format {fmt!r} not available. Options: {list(files)}",
-        }), 404
+        return jsonify(
+            {
+                "success": False,
+                "error": f"Format {fmt!r} not available. Options: {list(files)}",
+            }
+        ), 404
 
     path = files[fmt]
     if not os.path.exists(path):
         return jsonify({"success": False, "error": "File not found on server."}), 404
 
-    return send_file(path, as_attachment=True,
-                     download_name=f"summary_{task_id[:8]}.{fmt}")
+    return send_file(path, as_attachment=True, download_name=f"summary_{task_id[:8]}.{fmt}")
 
 
 @app.route("/api/status", methods=["GET"])
@@ -364,17 +384,21 @@ def api_agent_status():
 @app.route("/api/estatisticas", methods=["GET"])
 def api_stats():
     with _lock:
-        total   = len(_tasks)
-        done    = sum(1 for t in _tasks.values() if t["status"] == "done")
-        failed  = sum(1 for t in _tasks.values() if t["status"] in ("failed", "error"))
+        total = len(_tasks)
+        done = sum(1 for t in _tasks.values() if t["status"] == "done")
+        failed = sum(1 for t in _tasks.values() if t["status"] in ("failed", "error"))
         running = sum(1 for t in _tasks.values() if t["status"] in ("queued", "processing"))
-    return jsonify({
-        "success": True,
-        "stats": {
-            "total": total, "done": done,
-            "failed": failed, "running": running,
-        },
-    })
+    return jsonify(
+        {
+            "success": True,
+            "stats": {
+                "total": total,
+                "done": done,
+                "failed": failed,
+                "running": running,
+            },
+        }
+    )
 
 
 @app.route("/api/limpar-cache", methods=["POST"])
@@ -396,24 +420,29 @@ def api_clear_cache():
 
 @app.route("/health")
 def health():
-    return jsonify({
-        "status": "ok",
-        "agent_ready": _agent_ready,
-        "gemini_model": config.gemini.model_id,
-        "summarization_method": config.summarization.method,
-    })
+    return jsonify(
+        {
+            "status": "ok",
+            "agent_ready": _agent_ready,
+            "gemini_model": config.gemini.model_id,
+            "summarization_method": config.summarization.method,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # Error handlers
 # ---------------------------------------------------------------------------
 
+
 @app.errorhandler(404)
 def err_404(e):
     if request.path.startswith("/api/"):
         return jsonify({"success": False, "error": "Not found."}), 404
     return render_template(
-        "error.html", code=404, message="Page not found",
+        "error.html",
+        code=404,
+        message="Page not found",
         now=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     ), 404
 
@@ -424,7 +453,9 @@ def err_500(e):
     if request.path.startswith("/api/"):
         return jsonify({"success": False, "error": "Internal server error."}), 500
     return render_template(
-        "error.html", code=500, message="Internal server error",
+        "error.html",
+        code=500,
+        message="Internal server error",
         now=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     ), 500
 
@@ -434,9 +465,9 @@ def err_500(e):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    port  = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 5000))
     debug = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
-    host  = os.environ.get("FLASK_HOST", "0.0.0.0")
+    host = os.environ.get("FLASK_HOST", "0.0.0.0")
 
     logger.info("Starting on %s:%s (debug=%s)", host, port, debug)
     app.run(host=host, port=port, debug=debug, threaded=True)

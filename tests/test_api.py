@@ -2,6 +2,7 @@
 Integration tests for the Flask API endpoints.
 The ArticleSummarizerAgent is mocked so no real HTTP or Gemini calls are made.
 """
+
 from __future__ import annotations
 
 import os

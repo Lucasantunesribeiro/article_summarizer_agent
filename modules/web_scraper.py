@@ -43,9 +43,7 @@ logger = logging.getLogger(__name__)
 # SSRF Protection
 # ---------------------------------------------------------------------------
 
-_BLOCKED_NETWORKS = [
-    ipaddress.ip_network(cidr) for cidr in config.scraping.blocked_cidrs
-]
+_BLOCKED_NETWORKS = [ipaddress.ip_network(cidr) for cidr in config.scraping.blocked_cidrs]
 
 _BLOCKED_HOSTNAMES = frozenset({"localhost"})
 _BLOCKED_SUFFIXES = (".local", ".internal", ".localhost", ".corp", ".home.arpa")
@@ -103,6 +101,7 @@ def _check_ssrf(url: str) -> None:
 # WebScraper
 # ---------------------------------------------------------------------------
 
+
 class WebScraper:
     """HTTP-based article extractor with SSRF protection and size limits."""
 
@@ -149,12 +148,14 @@ class WebScraper:
         soup = BeautifulSoup(response.text, "html.parser")
         content_data = self._extract_content(soup, url)
 
-        content_data.update({
-            "url": url,
-            "status_code": response.status_code,
-            "encoding": encoding,
-            "scraped_at": time.time(),
-        })
+        content_data.update(
+            {
+                "url": url,
+                "status_code": response.status_code,
+                "encoding": encoding,
+                "scraped_at": time.time(),
+            }
+        )
 
         self._mem_cache[url_hash] = content_data
         logger.info(
@@ -211,9 +212,7 @@ class WebScraper:
                 response.raise_for_status()
 
                 # Content-size guard
-                content_length = int(
-                    response.headers.get("Content-Length", 0)
-                )
+                content_length = int(response.headers.get("Content-Length", 0))
                 if content_length > config.scraping.max_content_bytes:
                     raise ValueError(
                         f"Response too large: {content_length} bytes "
@@ -308,6 +307,7 @@ class WebScraper:
     def _extract_with_newspaper(self, url: str) -> str:
         try:
             from newspaper import Article  # type: ignore[import]
+
             article = Article(url)
             article.download()
             article.parse()
@@ -323,9 +323,14 @@ class WebScraper:
 
     def _extract_title(self, soup: BeautifulSoup) -> str:
         selectors = [
-            "h1", "title",
-            '[property="og:title"]', '[name="twitter:title"]',
-            ".title", ".headline", ".post-title", ".article-title",
+            "h1",
+            "title",
+            '[property="og:title"]',
+            '[name="twitter:title"]',
+            ".title",
+            ".headline",
+            ".post-title",
+            ".article-title",
         ]
         for sel in selectors:
             el = soup.select_one(sel)
@@ -337,8 +342,12 @@ class WebScraper:
 
     def _extract_author(self, soup: BeautifulSoup) -> str:
         selectors = [
-            '[name="author"]', '[property="article:author"]',
-            '[rel="author"]', ".author", ".byline", ".writer",
+            '[name="author"]',
+            '[property="article:author"]',
+            '[rel="author"]',
+            ".author",
+            ".byline",
+            ".writer",
         ]
         for sel in selectors:
             el = soup.select_one(sel)
@@ -350,27 +359,30 @@ class WebScraper:
 
     def _extract_publish_date(self, soup: BeautifulSoup) -> str:
         selectors = [
-            '[property="article:published_time"]', '[name="publish_date"]',
-            '[name="date"]', "time[datetime]",
-            ".date", ".publish-date", ".timestamp",
+            '[property="article:published_time"]',
+            '[name="publish_date"]',
+            '[name="date"]',
+            "time[datetime]",
+            ".date",
+            ".publish-date",
+            ".timestamp",
         ]
         for sel in selectors:
             el = soup.select_one(sel)
             if el:
-                date = (
-                    el.get("content", "")
-                    or el.get("datetime", "")
-                    or el.get_text(strip=True)
-                )
+                date = el.get("content", "") or el.get("datetime", "") or el.get_text(strip=True)
                 if date:
                     return str(date)
         return "Unknown Date"
 
     def _extract_description(self, soup: BeautifulSoup) -> str:
         selectors = [
-            '[name="description"]', '[property="og:description"]',
+            '[name="description"]',
+            '[property="og:description"]',
             '[name="twitter:description"]',
-            ".description", ".excerpt", ".summary",
+            ".description",
+            ".excerpt",
+            ".summary",
         ]
         for sel in selectors:
             el = soup.select_one(sel)

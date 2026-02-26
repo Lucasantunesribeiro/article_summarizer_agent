@@ -44,6 +44,7 @@ logger = logging.getLogger("ArticleSummarizerAgent")
 # Agent class
 # ---------------------------------------------------------------------------
 
+
 class ArticleSummarizerAgent:
     """Autonomous agent that orchestrates the full summarisation pipeline."""
 
@@ -52,10 +53,10 @@ class ArticleSummarizerAgent:
         logger.info("Initialising Article Summarizer Agent…")
 
         try:
-            self.web_scraper   = WebScraper()
+            self.web_scraper = WebScraper()
             self.text_processor = TextProcessor()
-            self.summarizer    = Summarizer()
-            self.file_manager  = FileManager()
+            self.summarizer = Summarizer()
+            self.file_manager = FileManager()
             print(f"{Fore.GREEN}✓ Agent initialised{Style.RESET_ALL}")
         except Exception as exc:
             print(f"{Fore.RED}✗ Initialisation failed: {exc}{Style.RESET_ALL}")
@@ -108,14 +109,14 @@ class ArticleSummarizerAgent:
 
             execution_time = time.time() - start
             result: dict = {
-                "success":        True,
-                "url":            url,
+                "success": True,
+                "url": url,
                 "execution_time": execution_time,
-                "summary":        step4["summary"],
-                "method_used":    step4["method_used"],
-                "files_created":  step5["files_created"],
-                "statistics":     step5["summary_stats"],
-                "timestamp":      time.time(),
+                "summary": step4["summary"],
+                "method_used": step4["method_used"],
+                "files_created": step5["files_created"],
+                "statistics": step5["summary_stats"],
+                "timestamp": time.time(),
             }
 
             self.file_manager.save_to_cache(url, result)
@@ -126,11 +127,11 @@ class ArticleSummarizerAgent:
             logger.error("Pipeline failed: %s", exc)
             print(f"{Fore.RED}✗ Pipeline failed: {exc}{Style.RESET_ALL}")
             return {
-                "success":        False,
-                "url":            url,
-                "error":          str(exc),
+                "success": False,
+                "url": url,
+                "error": str(exc),
                 "execution_time": time.time() - start,
-                "timestamp":      time.time(),
+                "timestamp": time.time(),
             }
 
     def get_status(self) -> dict:
@@ -138,17 +139,17 @@ class ArticleSummarizerAgent:
             "version": "2.0.0",
             "config": {
                 "summarization_method": config.summarization.method,
-                "summary_length":       config.summarization.summary_length,
-                "output_formats":       config.output.formats,
-                "cache_enabled":        config.output.cache_enabled,
-                "gemini_model":         config.gemini.model_id,
+                "summary_length": config.summarization.summary_length,
+                "output_formats": config.output.formats,
+                "cache_enabled": config.output.cache_enabled,
+                "gemini_model": config.gemini.model_id,
             },
             "storage_info": self.file_manager.get_storage_info(),
             "modules_loaded": {
-                "web_scraper":    True,
+                "web_scraper": True,
                 "text_processor": True,
-                "summarizer":     True,
-                "file_manager":   True,
+                "summarizer": True,
+                "file_manager": True,
             },
         }
 
@@ -178,6 +179,7 @@ class ArticleSummarizerAgent:
                 # Try JS rendering as fallback
                 try:
                     from modules.selenium_scraper import JsRenderingScraper  # noqa: PLC0415
+
                     data = JsRenderingScraper().scrape_article(url)
                 except ImportError:
                     raise
@@ -216,9 +218,7 @@ class ArticleSummarizerAgent:
         )
         return data
 
-    def _step5_save(
-        self, summary: dict, scraped: dict, processed: dict
-    ) -> dict:
+    def _step5_save(self, summary: dict, scraped: dict, processed: dict) -> dict:
         with tqdm(total=1, desc="Step 5: Saving results", colour="cyan") as pbar:
             result = self.file_manager.save_results(summary, scraped, processed)
             pbar.update(1)
@@ -238,8 +238,10 @@ class ArticleSummarizerAgent:
         print(f"\n{Fore.YELLOW}Summary:{Style.RESET_ALL}\n{preview}")
         stats = result["statistics"]
         print(f"\n{Fore.YELLOW}Stats:{Style.RESET_ALL}")
-        print(f"  Words (original → summary): "
-              f"{stats.get('words_original', 0)} → {stats.get('words_summary', 0)}")
+        print(
+            f"  Words (original → summary): "
+            f"{stats.get('words_original', 0)} → {stats.get('words_summary', 0)}"
+        )
         cr = stats.get("compression_ratio", 0)
         print(f"  Compression: {cr:.1%}")
         print(f"  Method: {result['method_used']}")
@@ -271,6 +273,7 @@ class ArticleSummarizerAgent:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Article Summarizer Agent",
@@ -279,27 +282,27 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--url", "-u", help="Article URL to summarise")
     parser.add_argument(
-        "--method", "-m",
+        "--method",
+        "-m",
         choices=["extractive", "generative"],
         help="Summarisation method",
     )
     parser.add_argument(
-        "--length", "-l",
+        "--length",
+        "-l",
         choices=["short", "medium", "long"],
         help="Summary length",
     )
-    parser.add_argument("--output-dir", "-o", dest="output_dir",
-                        help="Output directory for summary files")
-    parser.add_argument("--interactive", "-i", action="store_true",
-                        help="Interactive mode")
-    parser.add_argument("--status",      "-s", action="store_true",
-                        help="Show agent status")
-    parser.add_argument("--clear-cache",       action="store_true",
-                        help="Clear cached results")
-    parser.add_argument("--cleanup-files", type=int, metavar="DAYS",
-                        help="Remove output files older than N days")
-    parser.add_argument("--verbose", "-v", action="store_true",
-                        help="Verbose output")
+    parser.add_argument(
+        "--output-dir", "-o", dest="output_dir", help="Output directory for summary files"
+    )
+    parser.add_argument("--interactive", "-i", action="store_true", help="Interactive mode")
+    parser.add_argument("--status", "-s", action="store_true", help="Show agent status")
+    parser.add_argument("--clear-cache", action="store_true", help="Clear cached results")
+    parser.add_argument(
+        "--cleanup-files", type=int, metavar="DAYS", help="Remove output files older than N days"
+    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
     return parser
 
 

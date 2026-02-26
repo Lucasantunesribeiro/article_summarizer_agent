@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 # Top-level dispatcher
 # ---------------------------------------------------------------------------
 
+
 class Summarizer:
     """Dispatches to Gemini or extractive depending on config / availability."""
 
@@ -40,13 +41,12 @@ class Summarizer:
     def _try_init_gemini(self) -> object | None:
         try:
             from .gemini_summarizer import GeminiSummarizer  # noqa: PLC0415
+
             gs = GeminiSummarizer()
             logger.info("Gemini summarizer ready.")
             return gs
         except Exception as exc:
-            logger.warning(
-                "Gemini summarizer unavailable (%s); using extractive fallback.", exc
-            )
+            logger.warning("Gemini summarizer unavailable (%s); using extractive fallback.", exc)
             return None
 
     def summarize(self, processed_data: dict) -> dict:
@@ -95,6 +95,7 @@ class Summarizer:
 # Extractive summariser
 # ---------------------------------------------------------------------------
 
+
 class ExtractiveSummarizer:
     """TF-IDF + position + cosine-similarity sentence ranking."""
 
@@ -107,9 +108,9 @@ class ExtractiveSummarizer:
                 "method_used": "extractive",
             }
 
-        tfidf_scores   = self._tfidf_scores(sentences)
+        tfidf_scores = self._tfidf_scores(sentences)
         position_scores = self._position_scores(sentences)
-        length_scores   = self._length_scores(sentences)
+        length_scores = self._length_scores(sentences)
         similarity_scores = self._similarity_scores(sentences)
 
         combined = self._combine_scores(
@@ -134,8 +135,10 @@ class ExtractiveSummarizer:
     def _tfidf_scores(self, sentences: list[str]) -> list[float]:
         try:
             vec = TfidfVectorizer(
-                stop_words="english", lowercase=True,
-                max_features=1000, ngram_range=(1, 2),
+                stop_words="english",
+                lowercase=True,
+                max_features=1000,
+                ngram_range=(1, 2),
             )
             matrix = vec.fit_transform(sentences)
             scores = np.array(matrix.sum(axis=1)).flatten()
@@ -201,9 +204,7 @@ class ExtractiveSummarizer:
 
     # --- Selection ---
 
-    def _select_diverse(
-        self, sentences: list[str], scores: list[float]
-    ) -> list[int]:
+    def _select_diverse(self, sentences: list[str], scores: list[float]) -> list[int]:
         target = config.summarization.extractive_sentences.get(
             config.summarization.summary_length, 5
         )

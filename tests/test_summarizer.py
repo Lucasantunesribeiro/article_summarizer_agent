@@ -2,6 +2,7 @@
 Tests for the extractive summariser.
 Gemini is NOT called — tests run fully offline.
 """
+
 import pytest
 
 from config import config
@@ -59,7 +60,9 @@ class TestExtractiveSummarizer:
         config.summarization.summary_length = "medium"  # restore
 
     def test_single_sentence_handled(self, summarizer):
-        result = summarizer.summarize(["Only one sentence here."], {"sentences": ["Only one sentence here."]})
+        result = summarizer.summarize(
+            ["Only one sentence here."], {"sentences": ["Only one sentence here."]}
+        )
         assert result["summary"]
 
 

@@ -1,6 +1,7 @@
 """
 Tests for TextProcessor — language detection, cleaning, sentence splitting.
 """
+
 import pytest
 
 from modules.text_processor import TextProcessor

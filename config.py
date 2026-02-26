@@ -23,6 +23,7 @@ from typing import Literal
 # Sub-configurations
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ScrapingConfig:
     """HTTP content-fetching settings."""
@@ -36,17 +37,19 @@ class ScrapingConfig:
     max_content_bytes: int = 10 * 1024 * 1024  # 10 MB
 
     # SSRF: private / link-local / metadata CIDRs blocked before DNS lookup
-    blocked_cidrs: list[str] = field(default_factory=lambda: [
-        "127.0.0.0/8",       # loopback
-        "10.0.0.0/8",        # RFC-1918 private
-        "172.16.0.0/12",     # RFC-1918 private
-        "192.168.0.0/16",    # RFC-1918 private
-        "169.254.0.0/16",    # link-local / EC2 metadata
-        "100.64.0.0/10",     # CGNAT / shared address space
-        "::1/128",            # IPv6 loopback
-        "fc00::/7",           # IPv6 unique local
-        "fe80::/10",          # IPv6 link-local
-    ])
+    blocked_cidrs: list[str] = field(
+        default_factory=lambda: [
+            "127.0.0.0/8",  # loopback
+            "10.0.0.0/8",  # RFC-1918 private
+            "172.16.0.0/12",  # RFC-1918 private
+            "192.168.0.0/16",  # RFC-1918 private
+            "169.254.0.0/16",  # link-local / EC2 metadata
+            "100.64.0.0/10",  # CGNAT / shared address space
+            "::1/128",  # IPv6 loopback
+            "fc00::/7",  # IPv6 unique local
+            "fe80::/10",  # IPv6 link-local
+        ]
+    )
 
     headers: dict[str, str] = field(default_factory=dict)
     user_agents: list[str] = field(default_factory=list)
@@ -60,8 +63,7 @@ class ScrapingConfig:
                     "Chrome/122.0.0.0 Safari/537.36"
                 ),
                 "Accept": (
-                    "text/html,application/xhtml+xml,application/xml;"
-                    "q=0.9,image/webp,*/*;q=0.8"
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
                 ),
                 "Accept-Language": "en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7",
                 "Accept-Encoding": "gzip, deflate, br",
@@ -105,13 +107,9 @@ class SummarizationConfig:
     """Summary generation settings."""
 
     # "extractive" always works offline; "generative" requires GEMINI_API_KEY.
-    method: Literal["extractive", "generative"] = os.getenv(
-        "SUMMARIZATION_METHOD", "extractive"
-    )  # type: ignore[assignment]
+    method: Literal["extractive", "generative"] = os.getenv("SUMMARIZATION_METHOD", "extractive")  # type: ignore[assignment]
 
-    summary_length: Literal["short", "medium", "long"] = os.getenv(
-        "SUMMARY_LENGTH", "medium"
-    )  # type: ignore[assignment]
+    summary_length: Literal["short", "medium", "long"] = os.getenv("SUMMARY_LENGTH", "medium")  # type: ignore[assignment]
 
     # Extractive: sentences per length
     extractive_sentences: dict[str, int] = field(
@@ -139,9 +137,7 @@ class GeminiConfig:
 
     # Fast, low-latency model (default)
     model_id: str = field(
-        default_factory=lambda: os.getenv(
-            "GEMINI_MODEL_ID", "gemini-2.5-flash-preview-05-20"
-        )
+        default_factory=lambda: os.getenv("GEMINI_MODEL_ID", "gemini-2.5-flash-preview-05-20")
     )
 
     # Higher-quality alternative — set GEMINI_MODEL_ID env var to override
@@ -175,9 +171,7 @@ class OutputConfig:
 class LoggingConfig:
     """Logging settings."""
 
-    level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = (
-        os.getenv("LOG_LEVEL", "INFO")  # type: ignore[assignment]
-    )
+    level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = os.getenv("LOG_LEVEL", "INFO")  # type: ignore[assignment]
     format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     file_enabled: bool = True
     log_file: str = "summarizer.log"
@@ -189,9 +183,7 @@ class ModelConfig:
     """Legacy HuggingFace model settings (kept for extractive fallback)."""
 
     model_name: str = os.getenv("HF_MODEL_NAME", "facebook/bart-large-cnn")
-    device: Literal["auto", "cpu", "cuda", "mps"] = (
-        os.getenv("HF_DEVICE", "auto")  # type: ignore[assignment]
-    )
+    device: Literal["auto", "cpu", "cuda", "mps"] = os.getenv("HF_DEVICE", "auto")  # type: ignore[assignment]
     cache_dir: str = ".model_cache"
     load_in_8bit: bool = False
 
@@ -199,6 +191,7 @@ class ModelConfig:
 # ---------------------------------------------------------------------------
 # Rate-limiting config (used by app.py)
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class RateLimitConfig:
@@ -213,6 +206,7 @@ class RateLimitConfig:
 # ---------------------------------------------------------------------------
 # Main Config class
 # ---------------------------------------------------------------------------
+
 
 class Config:
     """Aggregated configuration singleton.
@@ -269,21 +263,51 @@ CONTENT_SELECTORS: list[str] = [
 
 # Elements to strip before extracting text
 UNWANTED_SELECTORS: list[str] = [
-    "nav", "header", "footer", "aside",
-    ".nav", ".header", ".footer", ".sidebar",
-    ".advertisement", ".ads", ".ad", ".publicity",
-    ".social-share", ".share-buttons", ".social-links",
-    ".comments", ".comment", ".comment-section",
-    ".related-articles", ".related-posts", ".more-stories",
-    "script", "style", "noscript", "iframe",
-    ".cookie-notice", ".cookie-banner",
-    ".newsletter-signup", ".newsletter-popup",
-    ".modal", ".popup",
+    "nav",
+    "header",
+    "footer",
+    "aside",
+    ".nav",
+    ".header",
+    ".footer",
+    ".sidebar",
+    ".advertisement",
+    ".ads",
+    ".ad",
+    ".publicity",
+    ".social-share",
+    ".share-buttons",
+    ".social-links",
+    ".comments",
+    ".comment",
+    ".comment-section",
+    ".related-articles",
+    ".related-posts",
+    ".more-stories",
+    "script",
+    "style",
+    "noscript",
+    "iframe",
+    ".cookie-notice",
+    ".cookie-banner",
+    ".newsletter-signup",
+    ".newsletter-popup",
+    ".modal",
+    ".popup",
 ]
 
 # Supported ISO 639-1 language codes
 SUPPORTED_LANGUAGES: list[str] = [
-    "en", "es", "fr", "de", "it", "pt", "ru", "zh", "ja", "ko",
+    "en",
+    "es",
+    "fr",
+    "de",
+    "it",
+    "pt",
+    "ru",
+    "zh",
+    "ja",
+    "ko",
 ]
 
 DEFAULT_LANGUAGE: str = "en"

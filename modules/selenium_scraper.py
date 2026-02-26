@@ -71,9 +71,7 @@ class JsRenderingScraper:
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
-        options.add_argument(
-            "--user-agent=" + config.scraping.user_agents[0]
-        )
+        options.add_argument("--user-agent=" + config.scraping.user_agents[0])
 
         driver = None
         try:
