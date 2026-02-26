@@ -14,8 +14,13 @@ cd $HOME/opt/chrome
 
 # Download and extract Chrome
 echo "Downloading Google Chrome..."
-wget -q -O chrome.zip https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/114.0.5735.90/linux64/chrome-linux64.zip
+wget -q -O chrome.zip https://storage.googleapis.com/chrome-for-testing-public/133.0.6943.141/linux64/chrome-linux64.zip
 unzip -q chrome.zip
 rm chrome.zip
 
-echo "Chrome installed in $HOME/opt/chrome/chrome-linux64/chrome"
+echo "Downloading ChromeDriver..."
+wget -q -O chromedriver.zip https://storage.googleapis.com/chrome-for-testing-public/133.0.6943.141/linux64/chromedriver-linux64.zip
+unzip -q chromedriver.zip
+rm chromedriver.zip
+
+echo "Chrome and ChromeDriver installed in $HOME/opt/chrome"
