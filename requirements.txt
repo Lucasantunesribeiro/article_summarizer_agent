@@ -15,20 +15,38 @@ colorama>=0.4.6
 # ── Web application ───────────────────────────────────────────────────────────
 flask>=3.0.0
 flask-cors>=4.0.0
+flask-jwt-extended>=4.6.0
 gunicorn>=21.2.0
 
 # ── AI summarisation (Gemini) ─────────────────────────────────────────────────
-# Verify the latest stable model IDs at: https://ai.google.dev/gemini-api/docs/models
 google-genai>=1.0.0
 
-# ── Optional: content extraction helper ──────────────────────────────────────
-# newspaper3k is an optional fallback for content extraction.
-# Uncomment to enable:
-# newspaper3k>=0.2.8
+# ── Database ─────────────────────────────────────────────────────────────────
+sqlalchemy>=2.0
+alembic>=1.13.0
+psycopg2-binary>=2.9.9
 
-# ── Optional: JS rendering (for SPA/JS-heavy pages) ──────────────────────────
-# Only needed locally if you want JavaScript rendering support.
-# NOT installed on Render/Cloud Run — Chrome is unavailable in standard PaaS.
-# To enable locally: pip install selenium webdriver-manager
+# ── Cache & messaging ─────────────────────────────────────────────────────────
+redis>=5.0.0
+celery[redis]>=5.3.0
+flower>=2.0.0
+
+# ── Observability ─────────────────────────────────────────────────────────────
+prometheus_client>=0.20.0
+python-json-logger>=2.0.7
+
+# ── Resilience ────────────────────────────────────────────────────────────────
+tenacity>=8.2.0
+
+# ── API documentation ─────────────────────────────────────────────────────────
+flasgger>=0.9.7
+
+# ── Optional: JS rendering ────────────────────────────────────────────────────
 # selenium>=4.20.0
 # webdriver-manager>=4.0.1
+
+# ── Testing (dev) ─────────────────────────────────────────────────────────────
+responses>=0.25.0
+pytest-postgresql>=6.0.0
+# pytest-httpserver>=1.0.8
+# locust>=2.24.0

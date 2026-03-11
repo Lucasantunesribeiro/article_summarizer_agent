@@ -186,3 +186,36 @@ This project's policy explicitly prohibits WAF evasion and Cloudflare bypass cod
 - **Remove test files:** `test_advanced_waf_bypass.py`, `test_datacamp_selenium.py`, `test_datacamp_waf.py`
 
 Selenium may be retained **only** as a legitimate JavaScript-rendering fallback using standard `chromedriver` with no stealth options.
+
+---
+
+## Remediation Status (Updated 2026-03-11)
+
+All CRITICAL and HIGH findings have been resolved. MEDIUM findings M1–M4 have been fixed. The following improvements have been implemented beyond the original audit scope:
+
+| Finding | Status | Resolution |
+|---|---|---|
+| C1: Config naming mismatch | FIXED | Rewrote config.py with English attributes |
+| C2: WAF bypass code | FIXED | Removed entirely; clean HTTP-only scraper |
+| C3: run() signature mismatch | FIXED | Added method/length params to run() |
+| H1: No SSRF protection | FIXED | _check_ssrf() blocks all private CIDRs |
+| H2: SSL verification disabled | FIXED | verify=True on all requests |
+| H3: No rate limiting | FIXED | Per-IP rate limiting (in-memory + Redis) |
+| M1: No content-size limit | FIXED | 10 MB cap in ScrapingConfig |
+| M2: BART/Transformers | FIXED | Replaced with Gemini API + TF-IDF fallback |
+| M3: No test suite | FIXED | 55+ tests across 6 test files |
+| M4: Unauthenticated cache-clear | FIXED | X-Admin-Token header + JWT |
+| L1: Mixed language codebase | FIXED | English throughout |
+| L2: In-memory task state | FIXED | PostgreSQL persistence + SQLAlchemy |
+
+### New Capabilities Added
+
+- **PostgreSQL + SQLAlchemy + Alembic**: Persistent task history survives restarts.
+- **Redis cache + rate limiting**: Distributed cache and rate limiting for multi-worker deployments.
+- **Celery task queue**: Async task processing with retry logic and dead-letter handling.
+- **JWT authentication**: Secure admin endpoints with JWT tokens.
+- **Prometheus metrics**: `/metrics` endpoint with request counters and duration histograms.
+- **Structured JSON logging**: `python-json-logger` for log aggregation compatibility.
+- **Nonce-based CSP**: Removed `unsafe-inline` from Content-Security-Policy.
+- **Enhanced /health**: Individual checks for agent, Redis, and database.
+- **CORS wildcard warning**: Startup warning when CORS_ORIGINS=* in production mode.

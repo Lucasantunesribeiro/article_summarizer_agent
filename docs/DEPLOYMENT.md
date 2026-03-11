@@ -215,12 +215,64 @@ The `--reload` flag in gunicorn restarts workers on code changes, so you do not 
 | `FLASK_HOST` | No | `0.0.0.0` | Address Flask binds to. `0.0.0.0` is correct for containers. |
 | `PORT` | No | `5000` | Port to listen on. Render and Cloud Run set this automatically. |
 | `CORS_ORIGINS` | No | `*` | Comma-separated list of allowed CORS origins. Set to your frontend domain in production. `*` is acceptable only for local dev. |
-| `TIMEOUT_EXTRACAO` | No | `30` | HTTP request timeout in seconds for web scraping. |
-| `MAX_TENTATIVAS_EXTRACAO` | No | `3` | Number of scraper retry attempts with exponential backoff. |
-| `METODO_SUMARIZACAO` | No | `extractive` | Default summarization method (`extractive` or `generative`). Per-request `metodo` overrides this. |
-| `TAMANHO_RESUMO` | No | `medium` | Default summary length (`short`, `medium`, `long`). Per-request `tamanho` overrides this. |
-| `DIRETORIO_SAIDA` | No | `outputs` | Directory where output files are written. |
-| `CACHE_HABILITADO` | No | `true` | Set to `false` to disable the file-based result cache. |
+| `TIMEOUT_SCRAPING` | No | `30` | HTTP request timeout in seconds for web scraping. |
+| `MAX_RETRIES_SCRAPING` | No | `3` | Number of scraper retry attempts with exponential backoff. |
+| `SUMMARIZATION_METHOD` | No | `extractive` | Default summarization method (`extractive` or `generative`). Per-request `method` overrides this. |
+| `SUMMARY_LENGTH` | No | `medium` | Default summary length (`short`, `medium`, `long`). Per-request `length` overrides this. |
+| `OUTPUT_DIR` | No | `outputs` | Directory where output files are written. |
+| `CACHE_ENABLED` | No | `true` | Set to `false` to disable the file-based result cache. |
+
+---
+
+## Redis Configuration
+
+Redis is used for distributed caching and rate limiting. Set `REDIS_URL` to enable:
+
+```
+REDIS_URL=redis://localhost:6379/0
+```
+
+Without Redis, the application falls back to filesystem cache and in-memory rate limiting.
+
+For Redis on Cloud Run, use Cloud Memorystore or a managed Redis provider (e.g., Upstash):
+```
+REDIS_URL=rediss://:<password>@<host>:6380
+```
+
+---
+
+## PostgreSQL Configuration
+
+Set `DATABASE_URL` to use PostgreSQL instead of SQLite (development default):
+
+```
+DATABASE_URL=postgresql://summarizer:summarizer@localhost:5432/summarizer
+```
+
+Apply migrations before starting the app:
+```bash
+alembic upgrade head
+```
+
+For Cloud Run, set `DATABASE_URL` as a secret and use Cloud SQL Proxy or a connection pooler like PgBouncer.
+
+---
+
+## Celery Worker Configuration
+
+Start the Celery worker alongside the API:
+
+```bash
+celery -A celery_app worker --loglevel=info
+```
+
+Set broker and backend URLs:
+```
+CELERY_BROKER_URL=redis://localhost:6379/1
+CELERY_RESULT_BACKEND=redis://localhost:6379/2
+```
+
+Without a Celery worker running, the API falls back to in-process threading automatically.
 
 ---
 

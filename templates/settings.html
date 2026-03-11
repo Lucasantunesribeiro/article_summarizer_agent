@@ -126,9 +126,8 @@
                             <div class="mb-3">
                                 <label for="defaultMethod" class="form-label">Método Padrão</label>
                                 <select class="form-select" id="defaultMethod" name="defaultMethod">
-                                    <option value="extractive">Extrativo</option>
+                                    <option value="extractive" selected>Extrativo</option>
                                     <option value="generative">Generativo</option>
-                                    <option value="hybrid" selected>Híbrido</option>
                                 </select>
                             </div>
                         </div>
@@ -145,14 +144,10 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="modelName" class="form-label">Modelo Generativo</label>
-                        <select class="form-select" id="modelName" name="modelName">
-                            <option value="facebook/bart-large-cnn" selected>BART Large CNN</option>
-                            <option value="facebook/bart-base">BART Base</option>
-                            <option value="t5-small">T5 Small</option>
-                            <option value="t5-base">T5 Base</option>
-                        </select>
-                        <div class="form-text">Modelo de IA para sumarização generativa</div>
+                        <label for="geminiModelId" class="form-label">Gemini Model ID</label>
+                        <input type="text" class="form-control" id="geminiModelId" name="geminiModelId"
+                               value="gemini-2.5-flash-preview-05-20" placeholder="gemini-2.5-flash-preview-05-20">
+                        <div class="form-text">ID do modelo Gemini (configure via variável de ambiente GEMINI_MODEL_ID)</div>
                     </div>
                     
                     <div class="row">
@@ -227,6 +222,13 @@
                         </div>
                     </div>
                     
+                    <div class="mb-3">
+                        <label for="adminToken" class="form-label">Admin Token</label>
+                        <input type="password" class="form-control" id="adminToken" name="adminToken"
+                               placeholder="Token de administrador para operações sensíveis">
+                        <div class="form-text">Necessário para limpar o cache. Configure ADMIN_TOKEN no servidor.</div>
+                    </div>
+
                     <div class="d-flex gap-2">
                         <button type="button" class="btn btn-outline-warning" onclick="clearCache()">
                             <i class="bi bi-trash"></i> Limpar Cache
@@ -341,7 +343,36 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
+async function clearCache() {
+    const token = document.getElementById('adminToken') ? document.getElementById('adminToken').value : '';
+    if (!token) {
+        showAlert('<i class="bi bi-exclamation-triangle"></i> Informe o Admin Token para limpar o cache.', 'warning');
+        return;
+    }
+    try {
+        const response = await fetch('/api/limpar-cache', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Admin-Token': token
+            }
+        });
+        const data = await response.json();
+        if (data.success) {
+            showAlert('<i class="bi bi-check-circle"></i> Cache limpo com sucesso!', 'success');
+        } else {
+            showAlert('<i class="bi bi-exclamation-triangle"></i> Erro: ' + data.error, 'danger');
+        }
+    } catch (error) {
+        showAlert('<i class="bi bi-exclamation-triangle"></i> Erro: ' + error.message, 'danger');
+    }
+}
+
+function checkCacheSize() {
+    showAlert('<i class="bi bi-info-circle"></i> Verificação de tamanho em desenvolvimento', 'info');
+}
+
 function saveAllSettings() {
     showAlert('<i class="bi bi-check-circle"></i> Configurações salvas com sucesso!', 'success');
 }

@@ -11,4 +11,54 @@ services:
     volumes:
       - ./outputs:/app/outputs
       - ./.cache:/app/.cache
+    depends_on:
+      - postgres
+      - redis
     restart: unless-stopped
+
+  worker:
+    build: .
+    command: celery -A celery_app worker --loglevel=info --concurrency=2
+    env_file:
+      - .env
+    volumes:
+      - ./outputs:/app/outputs
+      - ./.cache:/app/.cache
+    depends_on:
+      - redis
+      - postgres
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: summarizer
+      POSTGRES_USER: summarizer
+      POSTGRES_PASSWORD: summarizer
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  flower:
+    image: mher/flower:2.0
+    command: celery flower --broker=redis://redis:6379/1 --port=5555
+    ports:
+      - "5555:5555"
+    environment:
+      - FLOWER_BASIC_AUTH=${FLOWER_BASIC_AUTH:-admin:changeme}
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

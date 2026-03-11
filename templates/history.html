@@ -27,10 +27,10 @@
     {% for task in tasks %}
     <div class="col-12 mb-4">
         <div class="card shadow border-0">
-            <div class="card-header bg-{{ 'success' if task.status == 'completed' else 'danger' if task.status == 'failed' else 'warning' }} text-white">
+            <div class="card-header bg-{{ 'success' if task.status == 'done' else 'danger' if task.status == 'failed' else 'warning' }} text-white">
                 <div class="d-flex justify-content-between align-items-center">
                     <h5 class="card-title mb-0">
-                        <i class="bi bi-{{ 'check-circle' if task.status == 'completed' else 'x-circle' if task.status == 'failed' else 'hourglass-split' }}"></i>
+                        <i class="bi bi-{{ 'check-circle' if task.status == 'done' else 'x-circle' if task.status == 'failed' else 'hourglass-split' }}"></i>
                         Tarefa {{ task.task_id[:8] }}...
                     </h5>
                     <small>{{ task.started_at }}</small>
@@ -38,7 +38,7 @@
             </div>
             
             <div class="card-body">
-                {% if task.status == 'completed' and task.result %}
+                {% if task.status == 'done' and task.result %}
                 <div class="row">
                     <div class="col-md-8">
                         <h6 class="text-primary">Resumo:</h6>
@@ -90,10 +90,49 @@
     {% endfor %}
 </div>
 
-<!-- Pagination (future enhancement) -->
+<!-- Pagination -->
 <div class="row mt-4">
-    <div class="col-12 text-center">
-        <small class="text-muted">Mostrando {{ tasks|length }} tarefas mais recentes</small>
+    <div class="col-12">
+        {% if total_pages > 1 %}
+        <nav aria-label="Paginação">
+            <ul class="pagination justify-content-center">
+                <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                    <a class="page-link" href="?page={{ page - 1 }}&per_page={{ per_page }}">
+                        <i class="bi bi-chevron-left"></i> Anterior
+                    </a>
+                </li>
+                {% for p in range(1, total_pages + 1) %}
+                {% if p == page or p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+                <li class="page-item {% if p == page %}active{% endif %}">
+                    <a class="page-link" href="?page={{ p }}&per_page={{ per_page }}">{{ p }}</a>
+                </li>
+                {% elif p == page - 3 or p == page + 3 %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+                {% endfor %}
+                <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+                    <a class="page-link" href="?page={{ page + 1 }}&per_page={{ per_page }}">
+                        Próxima <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+
+        <div class="d-flex justify-content-center align-items-center gap-3 mt-2">
+            <small class="text-muted">
+                Mostrando {{ tasks|length }} de {{ total }} tarefas (página {{ page }} de {{ total_pages }})
+            </small>
+            <div class="d-flex align-items-center gap-1">
+                <small class="text-muted">Por página:</small>
+                {% for n in [10, 20, 50] %}
+                <a href="?page=1&per_page={{ n }}"
+                   class="btn btn-sm {% if per_page == n %}btn-primary{% else %}btn-outline-secondary{% endif %} py-0">
+                    {{ n }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
     </div>
 </div>
 
@@ -114,7 +153,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 function clearHistory() {
     if (confirm('Tem certeza que deseja limpar todo o histórico?')) {
         // This would need backend implementation

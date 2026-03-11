@@ -51,6 +51,11 @@ class ScrapingConfig:
         ]
     )
 
+    # Circuit breaker: how many failures before opening the circuit
+    circuit_breaker_threshold: int = int(os.getenv("CIRCUIT_BREAKER_THRESHOLD", "3"))
+    # Seconds the circuit stays OPEN before allowing a probe request
+    circuit_breaker_timeout: int = int(os.getenv("CIRCUIT_BREAKER_TIMEOUT", "120"))
+
     headers: dict[str, str] = field(default_factory=dict)
     user_agents: list[str] = field(default_factory=list)
 

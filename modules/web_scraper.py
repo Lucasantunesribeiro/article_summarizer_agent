@@ -33,9 +33,16 @@ import chardet
 import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 from urllib3.util.retry import Retry
 
 from config import CONTENT_SELECTORS, UNWANTED_SELECTORS, config
+from modules.circuit_breaker import CircuitOpenError, circuit_breaker
 
 logger = logging.getLogger(__name__)
 
@@ -209,53 +216,69 @@ class WebScraper:
         return session
 
     def _fetch(self, url: str, headers: dict[str, str]) -> requests.Response:
-        """Perform the HTTP GET with timeout and content-size guard."""
-        for attempt in range(1, config.scraping.max_retries + 2):
-            try:
-                if attempt > 1:
-                    delay = config.scraping.retry_delay * (
-                        config.scraping.backoff_factor ** (attempt - 2)
-                    )
-                    logger.info("Retry %d for %s (wait %.1fs)", attempt, url, delay)
-                    time.sleep(delay)
+        """Perform the HTTP GET with circuit breaker, Tenacity retries, and content-size guard."""
+        hostname = urlparse(url).hostname or url
 
-                # stream=True lets us check Content-Length before downloading body
-                response = self.session.get(
-                    url,
-                    headers=headers,
-                    timeout=config.scraping.timeout,
-                    stream=True,
-                    verify=True,  # SSL verification always on
+        # Circuit breaker check — fail fast if the host is known-broken
+        if circuit_breaker.is_open(hostname):
+            status = circuit_breaker.get_status(hostname)
+            raise CircuitOpenError(hostname) from None
+
+        @retry(
+            retry=retry_if_exception_type((requests.ConnectionError, requests.Timeout)),
+            stop=stop_after_attempt(config.scraping.max_retries + 1),
+            wait=wait_exponential(
+                multiplier=config.scraping.retry_delay,
+                min=config.scraping.retry_delay,
+                max=config.scraping.retry_delay * (config.scraping.backoff_factor ** 3),
+            ),
+            reraise=True,
+        )
+        def _do_fetch() -> requests.Response:
+            # stream=True lets us check Content-Length before downloading body
+            response = self.session.get(
+                url,
+                headers=headers,
+                timeout=config.scraping.timeout,
+                stream=True,
+                verify=True,  # SSL verification always on
+            )
+            response.raise_for_status()
+
+            # Content-size guard
+            content_length = int(response.headers.get("Content-Length", 0))
+            if content_length > config.scraping.max_content_bytes:
+                raise ValueError(
+                    f"Response too large: {content_length} bytes "
+                    f"(limit {config.scraping.max_content_bytes})."
                 )
-                response.raise_for_status()
 
-                # Content-size guard
-                content_length = int(response.headers.get("Content-Length", 0))
-                if content_length > config.scraping.max_content_bytes:
+            # Read body with size cap
+            chunks = []
+            total = 0
+            for chunk in response.iter_content(chunk_size=65536):
+                total += len(chunk)
+                if total > config.scraping.max_content_bytes:
                     raise ValueError(
-                        f"Response too large: {content_length} bytes "
-                        f"(limit {config.scraping.max_content_bytes})."
+                        f"Response body exceeded {config.scraping.max_content_bytes} bytes."
                     )
+                chunks.append(chunk)
+            response._content = b"".join(chunks)
+            return response
 
-                # Read body with size cap
-                chunks = []
-                total = 0
-                for chunk in response.iter_content(chunk_size=65536):
-                    total += len(chunk)
-                    if total > config.scraping.max_content_bytes:
-                        raise ValueError(
-                            f"Response body exceeded {config.scraping.max_content_bytes} bytes."
-                        )
-                    chunks.append(chunk)
-                response._content = b"".join(chunks)
-                return response
-
-            except (requests.ConnectionError, requests.Timeout) as exc:
-                logger.warning("Attempt %d failed for %s: %s", attempt, url, exc)
-                if attempt > config.scraping.max_retries:
-                    raise
-
-        raise requests.RequestException(f"All retries exhausted for {url}")
+        try:
+            response = _do_fetch()
+            circuit_breaker.record_success(hostname)
+            return response
+        except CircuitOpenError:
+            raise
+        except (requests.ConnectionError, requests.Timeout) as exc:
+            circuit_breaker.record_failure(hostname)
+            logger.warning("All retries exhausted for %s — circuit failure recorded: %s", url, exc)
+            raise
+        except Exception:
+            circuit_breaker.record_failure(hostname)
+            raise
 
     def _scrape_via_wayback(self, url: str) -> dict:
         """Fetch article from Wayback Machine when direct access is blocked (403).

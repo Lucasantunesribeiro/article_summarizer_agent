@@ -4,7 +4,7 @@ No real HTTP calls, no real agent — pure in-process logic.
 
 Covers:
   - _normalise_url  (URL normalisation helper)
-  - _check_rate_limit (per-IP in-memory rate limiter)
+  - InMemoryRateLimiter (per-IP in-memory rate limiter, now in modules/rate_limiter.py)
   - _evict_old_tasks  (in-memory task store eviction)
 """
 
@@ -22,15 +22,13 @@ import time
 from datetime import datetime, timedelta
 
 from app import (
-    _check_rate_limit,
     _evict_old_tasks,
     _lock,
     _normalise_url,
-    _rate_lock,
-    _rate_windows,
     _results,
     _tasks,
 )
+from modules.rate_limiter import InMemoryRateLimiter
 from config import config
 
 # ---------------------------------------------------------------------------
@@ -61,46 +59,44 @@ class TestNormaliseUrl:
 
 
 # ---------------------------------------------------------------------------
-# _check_rate_limit
+# InMemoryRateLimiter (replaces old _check_rate_limit)
 # ---------------------------------------------------------------------------
 
 
 class TestRateLimit:
-    def setup_method(self):
-        # Isolate each test from rate state accumulated by prior tests
-        with _rate_lock:
-            _rate_windows.clear()
+    def _make_limiter(self, max_requests=10, window_seconds=60):
+        return InMemoryRateLimiter(max_requests=max_requests, window_seconds=window_seconds)
 
     def test_first_request_allowed(self):
-        assert _check_rate_limit("10.0.0.1") is True
+        limiter = self._make_limiter()
+        assert limiter.is_allowed("10.0.0.1") is True
 
     def test_requests_within_limit_allowed(self):
+        limiter = self._make_limiter(max_requests=10)
         ip = "10.0.0.2"
         for _ in range(5):
-            assert _check_rate_limit(ip) is True
+            assert limiter.is_allowed(ip) is True
 
-    def test_exceeds_limit_returns_false(self, monkeypatch):
-        monkeypatch.setattr(config.rate_limit, "max_requests", 3)
-        monkeypatch.setattr(config.rate_limit, "window_seconds", 60)
+    def test_exceeds_limit_returns_false(self):
+        limiter = self._make_limiter(max_requests=3, window_seconds=60)
         ip = "10.0.0.3"
-        _check_rate_limit(ip)
-        _check_rate_limit(ip)
-        _check_rate_limit(ip)
+        limiter.is_allowed(ip)
+        limiter.is_allowed(ip)
+        limiter.is_allowed(ip)
         # 4th request must be rejected
-        assert _check_rate_limit(ip) is False
+        assert limiter.is_allowed(ip) is False
 
-    def test_old_timestamps_evicted(self, monkeypatch):
-        monkeypatch.setattr(config.rate_limit, "max_requests", 2)
-        monkeypatch.setattr(config.rate_limit, "window_seconds", 1)
+    def test_old_timestamps_evicted(self):
+        limiter = self._make_limiter(max_requests=2, window_seconds=1)
         ip = "10.0.0.4"
-        _check_rate_limit(ip)
-        _check_rate_limit(ip)
+        limiter.is_allowed(ip)
+        limiter.is_allowed(ip)
         # Already at the limit — 3rd should be rejected
-        assert _check_rate_limit(ip) is False
+        assert limiter.is_allowed(ip) is False
         # Wait for the 1-second window to expire
         time.sleep(1.1)
         # After eviction the old timestamps are gone; new request is allowed
-        assert _check_rate_limit(ip) is True
+        assert limiter.is_allowed(ip) is True
 
 
 # ---------------------------------------------------------------------------

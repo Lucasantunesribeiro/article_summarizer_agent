@@ -310,7 +310,7 @@ class FileManager:
 
                 # Check if cache is still valid (24 hours)
                 cached_time = datetime.fromisoformat(cached_data.get("cached_at", ""))
-                if (datetime.now() - cached_time).total_seconds() < 86400:  # 24 hours
+                if (datetime.now() - cached_time).total_seconds() < config.output.cache_ttl:
                     self.logger.info("Using cached result")
                     return cached_data
 

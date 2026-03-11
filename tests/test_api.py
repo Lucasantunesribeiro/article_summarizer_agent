@@ -137,12 +137,28 @@ class TestTaskStatusEndpoint:
 
 
 class TestStatisticsEndpoint:
-    def test_stats_returns_200(self, client):
-        resp = client.get("/api/estatisticas")
+    def _get_token(self):
+        """Generate a valid JWT access token for testing."""
+        import app as flask_app
+        from flask_jwt_extended import create_access_token
+
+        with flask_app.app.app_context():
+            return create_access_token(identity="admin", additional_claims={"role": "admin"})
+
+    def test_stats_returns_200_with_token(self, client):
+        token = self._get_token()
+        resp = client.get(
+            "/api/estatisticas",
+            headers={"Authorization": f"Bearer {token}"},
+        )
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["success"] is True
         assert "stats" in data
+
+    def test_stats_returns_401_without_token(self, client):
+        resp = client.get("/api/estatisticas")
+        assert resp.status_code == 401
 
 
 class TestWebRoutes:

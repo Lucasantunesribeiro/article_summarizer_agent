@@ -11,7 +11,7 @@ GUNICORN := $(VENV)/bin/gunicorn
 IMAGE_NAME ?= article-summarizer
 IMAGE_TAG  ?= latest
 
-.PHONY: help setup install lint format test run run-dev docker-build docker-run clean
+.PHONY: help setup install lint format test test-db run run-dev docker-build docker-run clean worker flower migrate db-upgrade db-downgrade load-test
 
 help:          ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | \
@@ -42,11 +42,14 @@ lint-fix:      ## Lint and auto-fix safe issues
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
-test:          ## Run test suite
-	$(PYTEST) tests/ -v
+test:          ## Run test suite (excludes DB integration tests)
+	$(PYTEST) tests/ -v --ignore=tests/test_db_integration.py
+
+test-db:       ## Run DB integration tests (requires PostgreSQL)
+	$(PYTEST) tests/test_db_integration.py -v
 
 test-cov:      ## Run tests with coverage report
-	$(PYTEST) tests/ --cov --cov-report=term-missing
+	$(PYTEST) tests/ --cov --cov-report=term-missing --ignore=tests/test_db_integration.py
 
 # ── Run ──────────────────────────────────────────────────────────────────────
 
@@ -77,3 +80,21 @@ clean:         ## Remove build artefacts and cache
 	find . -name "*.pyc" -delete 2>/dev/null || true
 	rm -rf .cache outputs/*.txt outputs/*.md outputs/*.json 2>/dev/null || true
 	@echo "✓ Cleaned."
+
+worker:        ## Start Celery worker
+	$(VENV)/bin/celery -A celery_app worker --loglevel=info
+
+flower:        ## Start Flower Celery monitoring dashboard (requires Redis)
+	$(VENV)/bin/celery -A celery_app flower --port=5555
+
+migrate:       ## Create a new Alembic migration
+	$(VENV)/bin/alembic revision --autogenerate -m "$(MSG)"
+
+db-upgrade:    ## Apply pending Alembic migrations
+	$(VENV)/bin/alembic upgrade head
+
+db-downgrade:  ## Rollback last migration
+	$(VENV)/bin/alembic downgrade -1
+
+load-test:     ## Run Locust load tests (requires locust installed)
+	$(VENV)/bin/locust -f tests/load/locustfile.py --host=http://localhost:5000
