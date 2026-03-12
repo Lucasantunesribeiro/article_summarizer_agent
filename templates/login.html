@@ -16,7 +16,7 @@
                 </div>
                 {% endif %}
 
-                <form method="POST" action="{{ url_for('login') }}">
+                <form method="POST" action="{{ url_for('web.login') }}">
                     <div class="mb-3">
                         <label for="username" class="form-label">Usuário</label>
                         <input type="text" class="form-control" id="username" name="username"
@@ -36,7 +36,7 @@
             </div>
         </div>
         <div class="text-center mt-3">
-            <a href="{{ url_for('index') }}" class="text-muted">
+            <a href="{{ url_for('web.index') }}" class="text-muted">
                 <i class="bi bi-arrow-left"></i> Voltar ao início
             </a>
         </div>

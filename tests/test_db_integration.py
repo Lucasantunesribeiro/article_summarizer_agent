@@ -99,9 +99,21 @@ def test_to_dict_returns_expected_fields(db_session):
     d = task.to_dict()
 
     expected_keys = {
-        "id", "status", "url", "method", "length",
-        "created_at", "finished_at", "summary", "error",
-        "statistics", "files_created", "method_used", "execution_time",
+        "id",
+        "status",
+        "progress",
+        "message",
+        "url",
+        "method",
+        "length",
+        "created_at",
+        "finished_at",
+        "summary",
+        "error",
+        "statistics",
+        "files_created",
+        "method_used",
+        "execution_time",
     }
     assert expected_keys.issubset(d.keys())
     assert d["status"] == "done"

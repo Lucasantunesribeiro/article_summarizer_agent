@@ -29,7 +29,7 @@ jobs:
           python-version: "3.12"
           cache: "pip"
       - name: Install dependencies
-        run: pip install -r requirements.txt pytest pytest-cov
+        run: pip install -r requirements-dev.txt
       - name: Download NLTK data
         run: |
           python -c "
@@ -38,12 +38,12 @@ jobs:
               nltk.download(pkg, quiet=True)
           "
       - name: Run tests
-        run: pytest tests/ -v --tb=short --cov=modules --cov-report=term-missing
+        run: pytest tests/ -v --tb=short --cov --cov-report=term-missing
         env:
-          # Tests run offline — no real API key needed (Gemini is mocked)
           GEMINI_API_KEY: "test-key"
           FLASK_DEBUG: "true"
           SECRET_KEY: "test-secret-key"
+          ADMIN_PASSWORD: "Admin123!"
 
   docker-build:
     name: Docker build

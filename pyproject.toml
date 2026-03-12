@@ -4,7 +4,7 @@ build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "article-summarizer-agent"
-version = "2.0.0"
+version = "3.0.0"
 description = "Autonomous agent that extracts and summarises web articles using Gemini or extractive TF-IDF."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -62,7 +62,7 @@ filterwarnings = [
 # Coverage
 # ---------------------------------------------------------------------------
 [tool.coverage.run]
-source = ["modules", "config", "main", "app"]
+source = ["application", "domain", "infrastructure", "modules", "presentation", "config", "main", "app"]
 omit = [
     "tests/*",
     ".venv/*",
