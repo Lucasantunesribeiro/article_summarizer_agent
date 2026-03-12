@@ -1,6 +1,7 @@
 """
 Secrets manager with JWT key rotation and grace-period verification.
 """
+
 from __future__ import annotations
 
 import json
@@ -64,7 +65,9 @@ class SecretsManager:
                     return entry["secret"]  # type: ignore[return-value]
         return None
 
-    def rotate(self, new_secret: str | None = None, grace_period_seconds: int = DEFAULT_GRACE) -> dict:
+    def rotate(
+        self, new_secret: str | None = None, grace_period_seconds: int = DEFAULT_GRACE
+    ) -> dict:
         if not new_secret:
             new_secret = secrets.token_urlsafe(32)
 

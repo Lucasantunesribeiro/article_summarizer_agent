@@ -1,4 +1,5 @@
 """Simple synchronous event bus."""
+
 from __future__ import annotations
 
 from collections import defaultdict

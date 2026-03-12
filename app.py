@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """WSGI entrypoint for the Flask application."""
+
 from __future__ import annotations
 
 import os

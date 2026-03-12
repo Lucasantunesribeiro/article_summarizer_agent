@@ -1,4 +1,5 @@
 """Repository contracts used by the application layer."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

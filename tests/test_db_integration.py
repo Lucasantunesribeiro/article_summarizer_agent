@@ -5,6 +5,7 @@ Run with: make test-db
 These tests are excluded from the regular `make test` run to avoid requiring
 PostgreSQL in CI environments without Postgres.
 """
+
 from __future__ import annotations
 
 import uuid

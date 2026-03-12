@@ -1,4 +1,5 @@
 """Shared pytest fixtures for the Article Summarizer test suite."""
+
 from __future__ import annotations
 
 import os
@@ -57,7 +58,9 @@ def app_instance(monkeypatch):
 
     app = create_app()
     app.config["TESTING"] = True
-    monkeypatch.setattr(app.extensions["container"].submit_task_handler._event_bus, "publish", lambda event: None)
+    monkeypatch.setattr(
+        app.extensions["container"].submit_task_handler._event_bus, "publish", lambda event: None
+    )
 
     yield app
 
@@ -133,7 +136,15 @@ try:
         )
         alembic_cfg = AlembicConfig(str(ROOT / "alembic.ini"))
         alembic_cfg.set_main_option("sqlalchemy.url", db_url)
-        command.upgrade(alembic_cfg, "head")
+        previous_db_url = os.environ.get("DATABASE_URL")
+        os.environ["DATABASE_URL"] = db_url
+        try:
+            command.upgrade(alembic_cfg, "head")
+        finally:
+            if previous_db_url is None:
+                os.environ.pop("DATABASE_URL", None)
+            else:
+                os.environ["DATABASE_URL"] = previous_db_url
 
         engine = create_engine(db_url)
         Session = sessionmaker(bind=engine)

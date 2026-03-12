@@ -1,4 +1,5 @@
 """Cache abstraction: Redis backend with filesystem fallback."""
+
 from __future__ import annotations
 
 import hashlib

@@ -229,7 +229,7 @@ class WebScraper:
             wait=wait_exponential(
                 multiplier=config.scraping.retry_delay,
                 min=config.scraping.retry_delay,
-                max=config.scraping.retry_delay * (config.scraping.backoff_factor ** 3),
+                max=config.scraping.retry_delay * (config.scraping.backoff_factor**3),
             ),
             reraise=True,
         )

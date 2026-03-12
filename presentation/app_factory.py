@@ -1,4 +1,5 @@
 """Flask application factory."""
+
 from __future__ import annotations
 
 import logging
@@ -98,7 +99,10 @@ def create_app() -> Flask:
     @jwt.decode_key_loader
     def _jwt_decode_key(jwt_header, jwt_payload):
         key_id = jwt_header.get("kid")
-        return container.secrets_manager.get_secret_for_kid(key_id) or container.secrets_manager.get_current_secret()
+        return (
+            container.secrets_manager.get_secret_for_kid(key_id)
+            or container.secrets_manager.get_current_secret()
+        )
 
     @jwt.additional_headers_loader
     def _jwt_additional_headers(identity):

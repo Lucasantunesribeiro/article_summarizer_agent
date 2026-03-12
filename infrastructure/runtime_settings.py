@@ -1,4 +1,5 @@
 """Runtime application of persisted settings."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -70,7 +71,9 @@ class RuntimeSettingsApplier:
                 rebuild_rate_limiters = True
 
         if rebuild_scraper_session:
-            self._pipeline_runner.web_scraper.session = self._pipeline_runner.web_scraper._build_session()
+            self._pipeline_runner.web_scraper.session = (
+                self._pipeline_runner.web_scraper._build_session()
+            )
 
         if rebuild_summarizer:
             self._pipeline_runner.summarizer = Summarizer()

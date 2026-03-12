@@ -1,4 +1,5 @@
 """Dependency container and runtime wiring."""
+
 from __future__ import annotations
 
 import logging

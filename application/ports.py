@@ -1,4 +1,5 @@
 """Application-layer service contracts."""
+
 from __future__ import annotations
 
 from typing import Any, Protocol
@@ -7,8 +8,9 @@ from domain.entities import User
 
 
 class PipelineRunner(Protocol):
-    def run(self, url: str, method: str | None = None, length: str | None = None) -> dict[str, Any]:
-        ...
+    def run(
+        self, url: str, method: str | None = None, length: str | None = None
+    ) -> dict[str, Any]: ...
 
     def get_status(self) -> dict[str, Any]: ...
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """CLI entrypoint for the Article Summarizer application."""
+
 from __future__ import annotations
 
 import argparse
@@ -84,9 +85,7 @@ def main() -> None:
 
     if args.cleanup_files:
         agent.file_manager.cleanup_old_files(args.cleanup_files)
-        print(
-            f"{Fore.GREEN}Cleaned up files older than {args.cleanup_files} days{Style.RESET_ALL}"
-        )
+        print(f"{Fore.GREEN}Cleaned up files older than {args.cleanup_files} days{Style.RESET_ALL}")
         return
 
     if not args.url:
