@@ -226,9 +226,7 @@ class AuthConfig:
     seed_admin_username: str = os.getenv("ADMIN_USER", "admin")
     seed_admin_password: str = os.getenv("ADMIN_PASSWORD", "")
     jwt_expires_hours: int = int(os.getenv("JWT_EXPIRES_HOURS", "24"))
-    jwt_cookie_csrf_protect: bool = (
-        os.getenv("JWT_COOKIE_CSRF_PROTECT", "true").lower() == "true"
-    )
+    jwt_cookie_csrf_protect: bool = os.getenv("JWT_COOKIE_CSRF_PROTECT", "true").lower() == "true"
     jwt_cookie_secure: bool = os.getenv("FLASK_DEBUG", "false").lower() != "true"
 
 

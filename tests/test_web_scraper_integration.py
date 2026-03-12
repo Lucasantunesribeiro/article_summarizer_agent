@@ -1,4 +1,5 @@
 """Integration tests for WebScraper using mocked HTTP responses."""
+
 from __future__ import annotations
 
 import pytest

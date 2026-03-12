@@ -1,4 +1,5 @@
 """Command/query handlers related to summarization tasks."""
+
 from __future__ import annotations
 
 from dataclasses import asdict

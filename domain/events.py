@@ -1,4 +1,5 @@
 """Domain events for business-relevant actions."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

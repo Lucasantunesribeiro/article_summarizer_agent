@@ -19,8 +19,11 @@ from models import Base  # noqa: E402
 
 target_metadata = Base.metadata
 
-# Read DATABASE_URL from environment, fall back to SQLite for dev
-_db_url = os.getenv("DATABASE_URL", "sqlite:///./dev.db")
+# Respect an explicit Alembic URL first; otherwise fall back to DATABASE_URL.
+_configured_url = config.get_main_option("sqlalchemy.url")
+_db_url = _configured_url or os.getenv("DATABASE_URL", "sqlite:///./dev.db")
+if _configured_url == "sqlite:///./dev.db":
+    _db_url = os.getenv("DATABASE_URL", _configured_url)
 if _db_url.startswith("postgres://"):
     _db_url = _db_url.replace("postgres://", "postgresql://", 1)
 
@@ -50,9 +53,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

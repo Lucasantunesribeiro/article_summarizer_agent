@@ -1,4 +1,5 @@
 """Query DTOs for read operations."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

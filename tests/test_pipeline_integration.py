@@ -1,4 +1,5 @@
 """Integration tests for the full ArticleSummarizerAgent pipeline."""
+
 from __future__ import annotations
 
 import pytest

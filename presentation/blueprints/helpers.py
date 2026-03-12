@@ -1,4 +1,5 @@
 """Shared helpers for presentation layer."""
+
 from __future__ import annotations
 
 import pathlib
@@ -15,7 +16,11 @@ def get_container():
 
 
 def get_request_ip() -> str:
-    return request.headers.get("X-Forwarded-For", request.remote_addr or "unknown").split(",")[0].strip()
+    return (
+        request.headers.get("X-Forwarded-For", request.remote_addr or "unknown")
+        .split(",")[0]
+        .strip()
+    )
 
 
 def enforce_rate_limit(profile: str):

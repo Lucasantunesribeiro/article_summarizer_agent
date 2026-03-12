@@ -1,4 +1,5 @@
 """Tests for cache, secrets, and runtime configuration services."""
+
 from __future__ import annotations
 
 import time
@@ -62,7 +63,9 @@ class TestSecretsManager:
 class DummyPipelineRunner:
     def __init__(self) -> None:
         self.cache_backend = object()
-        self.web_scraper = type("WebScraperStub", (), {"session": object(), "_build_session": lambda self: "session"})()
+        self.web_scraper = type(
+            "WebScraperStub", (), {"session": object(), "_build_session": lambda self: "session"}
+        )()
         self.summarizer = object()
         self.file_manager = type("FileManagerStub", (), {"cache_backend": object()})()
 
@@ -79,7 +82,9 @@ class TestRuntimeSettingsApplier:
             "admin": InMemoryRateLimiter(10, 300),
         }
         applier = RuntimeSettingsApplier(pipeline_runner, rate_limiters)
-        monkeypatch.setattr("infrastructure.runtime_settings.create_cache_backend", lambda ttl: {"ttl": ttl})
+        monkeypatch.setattr(
+            "infrastructure.runtime_settings.create_cache_backend", lambda ttl: {"ttl": ttl}
+        )
         monkeypatch.setattr("infrastructure.runtime_settings.Summarizer", lambda: {"rebuilt": True})
 
         applier.apply(

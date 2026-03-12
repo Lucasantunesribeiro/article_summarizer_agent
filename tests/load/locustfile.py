@@ -1,4 +1,5 @@
 """Locust load test for Article Summarizer Agent API."""
+
 from __future__ import annotations
 
 import os

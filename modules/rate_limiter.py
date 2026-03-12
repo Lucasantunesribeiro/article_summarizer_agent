@@ -1,4 +1,5 @@
 """Rate limiter: Redis-backed with in-memory fallback."""
+
 from __future__ import annotations
 
 import logging

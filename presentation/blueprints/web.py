@@ -1,4 +1,5 @@
 """HTML blueprint."""
+
 from __future__ import annotations
 
 from flask import Blueprint, g, redirect, render_template, request, url_for
