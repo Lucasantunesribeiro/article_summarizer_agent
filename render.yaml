@@ -3,7 +3,7 @@ services:
     name: article_summarizer_agent
     env: python
     buildCommand: "./render-build.sh"
-    startCommand: "gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120 app:app"
+    startCommand: "bash ./render-start.sh"
     envVars:
       - key: PYTHON_VERSION
         value: "3.13.0"
