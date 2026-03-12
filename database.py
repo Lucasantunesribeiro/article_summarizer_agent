@@ -4,9 +4,15 @@ from __future__ import annotations
 
 import os
 from contextlib import contextmanager
+from functools import lru_cache
+from pathlib import Path
+from threading import Lock
 
+from alembic.config import Config as AlembicConfig
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+
+from alembic import command
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./dev.db")
 
@@ -19,6 +25,7 @@ if not DATABASE_URL.startswith("sqlite"):
 
 engine = create_engine(DATABASE_URL, **ENGINE_OPTIONS)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+_migration_lock = Lock()
 
 
 @contextmanager
@@ -38,6 +45,20 @@ def init_db() -> None:
     """Validate database connectivity without mutating the schema."""
     with engine.connect() as connection:
         connection.execute(text("SELECT 1"))
+
+
+@lru_cache(maxsize=1)
+def upgrade_schema() -> None:
+    """Apply Alembic migrations once per process before the app starts serving."""
+    if os.getenv("SKIP_DB_MIGRATIONS_ON_STARTUP", "").lower() == "true":
+        return
+
+    with _migration_lock:
+        project_root = Path(__file__).resolve().parent
+        alembic_cfg = AlembicConfig(str(project_root / "alembic.ini"))
+        alembic_cfg.set_main_option("sqlalchemy.url", DATABASE_URL)
+        command.upgrade(alembic_cfg, "head")
+        engine.dispose()
 
 
 def get_db():

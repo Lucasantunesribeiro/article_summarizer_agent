@@ -15,6 +15,7 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 
 from config import config
+from database import upgrade_schema
 from infrastructure.container import build_runtime_container
 from modules.logging_config import setup_logging
 from presentation.blueprints.api import api_bp
@@ -87,6 +88,7 @@ def create_app() -> Flask:
         },
     )
 
+    upgrade_schema()
     container = build_runtime_container()
     app.extensions["container"] = container
 
