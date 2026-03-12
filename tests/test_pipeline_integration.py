@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import pytest
 
-
 SAMPLE_HTML = """
 <article>
 <h1>Machine Learning Fundamentals</h1>

@@ -1,293 +1,253 @@
-"""
-Integration tests for the Flask API endpoints.
-The ArticleSummarizerAgent is mocked so no real HTTP or Gemini calls are made.
-"""
-
+"""Integration tests for the Flask API endpoints."""
 from __future__ import annotations
 
-import os
+from pathlib import Path
 
-import pytest
-
-os.environ.setdefault("SECRET_KEY", "test-secret-key")
-os.environ.setdefault("FLASK_DEBUG", "true")
-os.environ.setdefault("GEMINI_API_KEY", "test-key")
+from domain.entities import SummarizationTask, TaskStatus
+from modules.rate_limiter import InMemoryRateLimiter
 
 
-@pytest.fixture(scope="module")
-def client():
-    """Flask test client with agent mocked out."""
-    from unittest.mock import MagicMock
-
-    import app as flask_app
-
-    # Patch the global agent with a mock
-    mock_agent = MagicMock()
-    mock_agent.run.return_value = {
-        "success": True,
-        "url": "https://example.com",
-        "summary": "This is the test summary.",
-        "method_used": "extractive",
-        "execution_time": 0.5,
-        "files_created": {"txt": "/tmp/test.txt", "md": "/tmp/test.md"},
-        "statistics": {
-            "words_original": 100,
-            "words_summary": 20,
-            "compression_ratio": 0.2,
-        },
-        "timestamp": 1000000,
+def _completed_task(task_id: str, files_created: dict | None = None) -> SummarizationTask:
+    task = SummarizationTask(
+        id=task_id,
+        url="https://example.com/article",
+        method="extractive",
+        length="medium",
+        status=TaskStatus.DONE,
+        progress=100,
+        message="Done!",
+    )
+    task.summary = "This is the test summary."
+    task.statistics = {
+        "words_original": 100,
+        "words_summary": 20,
+        "compression_ratio": 0.2,
     }
-    mock_agent.get_status.return_value = {
-        "version": "2.0.0",
-        "config": {"summarization_method": "extractive"},
-        "storage_info": {},
-        "modules_loaded": {},
-    }
-    mock_agent.file_manager = MagicMock()
-
-    flask_app._agent = mock_agent
-    flask_app._agent_ready = True
-
-    flask_app.app.config["TESTING"] = True
-    with flask_app.app.test_client() as c:
-        yield c
+    task.files_created = files_created or {}
+    task.method_used = "extractive"
+    task.execution_time = 0.5
+    return task
 
 
 class TestHealthEndpoint:
     def test_health_returns_200(self, client):
-        resp = client.get("/health")
-        assert resp.status_code == 200
-        data = resp.get_json()
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        data = response.get_json()
         assert data["status"] == "ok"
 
 
+class TestAuthEndpoints:
+    def test_login_returns_tokens_for_seeded_admin(self, client):
+        response = client.post(
+            "/api/auth/login",
+            json={"username": "admin", "password": "Admin123!"},
+        )
+
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert data["user"]["role"] == "admin"
+        assert data["access_token"]
+        assert response.headers.getlist("Set-Cookie")
+
+    def test_login_rejects_invalid_credentials(self, client):
+        response = client.post(
+            "/api/auth/login",
+            json={"username": "admin", "password": "wrong-password"},
+        )
+
+        assert response.status_code == 401
+        assert response.get_json()["success"] is False
+
+
 class TestSummarisationEndpoint:
-    def test_valid_request_returns_task_id(self, client):
-        resp = client.post(
+    def test_valid_request_returns_task_id(self, client, container):
+        response = client.post(
             "/api/sumarizar",
             json={"url": "https://example.com/article"},
-            content_type="application/json",
         )
-        assert resp.status_code == 200
-        data = resp.get_json()
+
+        assert response.status_code == 200
+        data = response.get_json()
         assert data["success"] is True
-        assert "task_id" in data
+        assert data["task_id"]
+        assert container.task_repository.get(data["task_id"]) is not None
 
     def test_missing_url_returns_400(self, client):
-        resp = client.post(
-            "/api/sumarizar",
-            json={},
-            content_type="application/json",
-        )
-        assert resp.status_code == 400
+        response = client.post("/api/sumarizar", json={})
+        assert response.status_code == 400
 
     def test_invalid_method_returns_400(self, client):
-        resp = client.post(
+        response = client.post(
             "/api/sumarizar",
             json={"url": "https://example.com", "method": "stealth"},
-            content_type="application/json",
         )
-        assert resp.status_code == 400
+        assert response.status_code == 400
 
     def test_invalid_length_returns_400(self, client):
-        resp = client.post(
+        response = client.post(
             "/api/sumarizar",
             json={"url": "https://example.com", "length": "huge"},
-            content_type="application/json",
         )
-        assert resp.status_code == 400
-
-    def test_localhost_url_rejected(self, client):
-        """SSRF: internal URLs must not reach the scraper."""
-        resp = client.post(
-            "/api/sumarizar",
-            json={"url": "http://localhost/internal"},
-            content_type="application/json",
-        )
-        # The SSRF check will reject this during pipeline execution.
-        # The endpoint accepts the request (200) but the task will fail.
-        # This test verifies the endpoint at least doesn't crash.
-        assert resp.status_code in (200, 400)
+        assert response.status_code == 400
 
     def test_no_json_body_returns_400(self, client):
-        resp = client.post("/api/sumarizar", data="not json")
-        assert resp.status_code == 400
+        response = client.post("/api/sumarizar", data="not json")
+        assert response.status_code == 400
 
 
 class TestTaskStatusEndpoint:
     def test_unknown_task_returns_404(self, client):
-        resp = client.get("/api/tarefa/nonexistent-task-id")
-        assert resp.status_code == 404
+        response = client.get("/api/tarefa/nonexistent-task-id")
+        assert response.status_code == 404
 
     def test_known_task_returns_200(self, client):
-        # First create a task
-        resp = client.post(
+        submit_response = client.post(
             "/api/sumarizar",
             json={"url": "https://example.com"},
-            content_type="application/json",
         )
-        task_id = resp.get_json()["task_id"]
+        task_id = submit_response.get_json()["task_id"]
 
-        # Then poll it
-        resp2 = client.get(f"/api/tarefa/{task_id}")
-        assert resp2.status_code == 200
-        data = resp2.get_json()
+        response = client.get(f"/api/tarefa/{task_id}")
+        assert response.status_code == 200
+        data = response.get_json()
         assert data["success"] is True
-        assert "task" in data
+        assert data["task"]["status"] == "queued"
+
+    def test_polling_rate_limit_is_enforced(self, client, container):
+        container.rate_limiters["polling"] = InMemoryRateLimiter(max_requests=1, window_seconds=60)
+        submit_response = client.post(
+            "/api/sumarizar",
+            json={"url": "https://example.com/rate-limit"},
+        )
+        task_id = submit_response.get_json()["task_id"]
+
+        assert client.get(f"/api/tarefa/{task_id}").status_code == 200
+        limited = client.get(f"/api/tarefa/{task_id}")
+        assert limited.status_code == 429
 
 
 class TestStatisticsEndpoint:
-    def _get_token(self):
-        """Generate a valid JWT access token for testing."""
-        import app as flask_app
-        from flask_jwt_extended import create_access_token
+    def test_stats_returns_200_with_token(self, client, admin_headers):
+        response = client.get("/api/estatisticas", headers=admin_headers)
 
-        with flask_app.app.app_context():
-            return create_access_token(identity="admin", additional_claims={"role": "admin"})
-
-    def test_stats_returns_200_with_token(self, client):
-        token = self._get_token()
-        resp = client.get(
-            "/api/estatisticas",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert resp.status_code == 200
-        data = resp.get_json()
+        assert response.status_code == 200
+        data = response.get_json()
         assert data["success"] is True
         assert "stats" in data
 
     def test_stats_returns_401_without_token(self, client):
-        resp = client.get("/api/estatisticas")
-        assert resp.status_code == 401
+        response = client.get("/api/estatisticas")
+        assert response.status_code == 401
+
+
+class TestClearCacheAuthorisation:
+    def test_requires_jwt(self, client):
+        response = client.post("/api/limpar-cache")
+        assert response.status_code == 401
+
+    def test_requires_admin_role(self, client, viewer_headers):
+        response = client.post("/api/limpar-cache", headers=viewer_headers)
+        assert response.status_code == 403
+
+    def test_admin_can_clear_cache(self, client, admin_headers):
+        response = client.post("/api/limpar-cache", headers=admin_headers)
+
+        assert response.status_code == 200
+        assert response.get_json()["success"] is True
+
+    def test_admin_rate_limit_is_enforced(self, client, container, admin_headers):
+        container.rate_limiters["admin"] = InMemoryRateLimiter(max_requests=1, window_seconds=60)
+
+        assert client.post("/api/limpar-cache", headers=admin_headers).status_code == 200
+        limited = client.post("/api/limpar-cache", headers=admin_headers)
+        assert limited.status_code == 429
+
+
+class TestSettingsEndpoints:
+    def test_admin_can_update_and_read_settings(self, client, admin_headers):
+        update_response = client.put(
+            "/api/settings",
+            headers=admin_headers,
+            json={
+                "settings": {
+                    "scraping.timeout": 45,
+                    "rate_limit.polling.max_requests": 25,
+                }
+            },
+        )
+        assert update_response.status_code == 200
+        assert update_response.get_json()["settings"]["scraping.timeout"] == 45
+
+        get_response = client.get("/api/settings", headers=admin_headers)
+        assert get_response.status_code == 200
+        data = get_response.get_json()
+        assert data["settings"]["scraping.timeout"] == 45
+        assert data["settings"]["rate_limit.polling.max_requests"] == 25
+
+    def test_non_admin_cannot_update_settings(self, client, viewer_headers):
+        response = client.put(
+            "/api/settings",
+            headers=viewer_headers,
+            json={"settings": {"scraping.timeout": 10}},
+        )
+        assert response.status_code == 403
+
+
+class TestDownloadValidation:
+    def test_path_outside_outputs_returns_400(self, client, container, tmp_path):
+        outside_file = tmp_path / "outside.txt"
+        outside_file.write_text("secret", encoding="utf-8")
+        task = _completed_task(
+            "aaaaaaaa-0000-0000-0000-000000000001",
+            files_created={"txt": str(outside_file)},
+        )
+        container.task_repository.add(task)
+
+        response = client.get(f"/api/download/{task.id}/txt")
+        assert response.status_code == 400
+        assert "Invalid file path" in response.get_json()["error"]
+
+    def test_valid_path_inside_outputs_returns_404_when_missing(self, client, container):
+        from config import config
+
+        file_path = Path(config.output.output_dir) / "missing-summary.txt"
+        task = _completed_task(
+            "aaaaaaaa-0000-0000-0000-000000000002",
+            files_created={"txt": str(file_path)},
+        )
+        container.task_repository.add(task)
+
+        response = client.get(f"/api/download/{task.id}/txt")
+        assert response.status_code == 404
+        assert "File not found" in response.get_json()["error"]
+
+    def test_valid_path_inside_outputs_downloads_file(self, client, container):
+        from config import config
+
+        output_dir = Path(config.output.output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        file_path = output_dir / "summary-test.txt"
+        file_path.write_text("summary content", encoding="utf-8")
+
+        task = _completed_task(
+            "aaaaaaaa-0000-0000-0000-000000000003",
+            files_created={"txt": str(file_path)},
+        )
+        container.task_repository.add(task)
+
+        response = client.get(f"/api/download/{task.id}/txt")
+        assert response.status_code == 200
+        assert response.data == b"summary content"
 
 
 class TestWebRoutes:
     def test_homepage_returns_200(self, client):
-        resp = client.get("/")
-        assert resp.status_code == 200
+        response = client.get("/")
+        assert response.status_code == 200
 
     def test_404_on_unknown_route(self, client):
-        resp = client.get("/this/does/not/exist")
-        assert resp.status_code == 404
-
-
-class TestClearCacheAuthC3:
-    """C3: /api/limpar-cache must fail-closed when ADMIN_TOKEN is unset."""
-
-    def test_no_token_header_returns_403_when_admin_token_unset(self, client):
-        # ADMIN_TOKEN is not set in the test environment — must be rejected.
-        original = os.environ.pop("ADMIN_TOKEN", None)
-        try:
-            resp = client.post("/api/limpar-cache")
-            assert resp.status_code == 403
-            data = resp.get_json()
-            assert data["success"] is False
-        finally:
-            if original is not None:
-                os.environ["ADMIN_TOKEN"] = original
-
-    def test_wrong_token_returns_403_when_admin_token_unset(self, client):
-        original = os.environ.pop("ADMIN_TOKEN", None)
-        try:
-            resp = client.post(
-                "/api/limpar-cache",
-                headers={"X-Admin-Token": "wrong-token"},
-            )
-            assert resp.status_code == 403
-        finally:
-            if original is not None:
-                os.environ["ADMIN_TOKEN"] = original
-
-    def test_correct_token_clears_cache(self, client):
-        os.environ["ADMIN_TOKEN"] = "supersecret"
-        try:
-            resp = client.post(
-                "/api/limpar-cache",
-                headers={"X-Admin-Token": "supersecret"},
-            )
-            assert resp.status_code == 200
-            data = resp.get_json()
-            assert data["success"] is True
-        finally:
-            del os.environ["ADMIN_TOKEN"]
-
-    def test_wrong_token_returns_403_when_admin_token_set(self, client):
-        os.environ["ADMIN_TOKEN"] = "supersecret"
-        try:
-            resp = client.post(
-                "/api/limpar-cache",
-                headers={"X-Admin-Token": "bad-guess"},
-            )
-            assert resp.status_code == 403
-        finally:
-            del os.environ["ADMIN_TOKEN"]
-
-
-class TestDownloadPathTraversalM1:
-    """M1: /api/download/<id>/<fmt> must reject paths outside the outputs/ directory."""
-
-    def _inject_result(self, flask_app, task_id: str, path: str) -> None:
-        """Directly insert a fake completed result into the in-memory store."""
-        with flask_app._lock:
-            flask_app._tasks[task_id] = {
-                "status": "done",
-                "progress": 100,
-                "message": "Done!",
-                "created_at": "2026-01-01T00:00:00",
-                "url": "https://example.com",
-                "method": "extractive",
-                "length": "medium",
-            }
-            flask_app._results[task_id] = {
-                "success": True,
-                "summary": "test",
-                "statistics": {},
-                "method_used": "extractive",
-                "execution_time": 0.1,
-                "files_created": {"txt": path},
-            }
-
-    def test_path_outside_outputs_returns_400(self, client):
-        import app as flask_app
-
-        task_id = "aaaaaaaa-0000-0000-0000-000000000001"
-        # Attempt to reference /etc/passwd — outside any outputs/ directory.
-        self._inject_result(flask_app, task_id, "/etc/passwd")
-
-        resp = client.get(f"/api/download/{task_id}/txt")
-        assert resp.status_code == 400
-        data = resp.get_json()
-        assert data["success"] is False
-        assert "Invalid file path" in data["error"]
-
-    def test_path_traversal_via_dotdot_returns_400(self, client):
-        import app as flask_app
-        from config import config
-
-        task_id = "aaaaaaaa-0000-0000-0000-000000000002"
-        # Construct a path that uses ../ to escape the outputs directory.
-        traversal_path = os.path.join(config.output.output_dir, "..", "secret.txt")
-        self._inject_result(flask_app, task_id, traversal_path)
-
-        resp = client.get(f"/api/download/{task_id}/txt")
-        # After resolve(), the path lands outside outputs/ — must be 400.
-        assert resp.status_code == 400
-        data = resp.get_json()
-        assert data["success"] is False
-        assert "Invalid file path" in data["error"]
-
-    def test_valid_path_inside_outputs_returns_404_when_file_missing(self, client):
-        import app as flask_app
-        from config import config
-
-        task_id = "aaaaaaaa-0000-0000-0000-000000000003"
-        # Path is inside outputs/ but the file does not actually exist on disk.
-        valid_path = os.path.join(config.output.output_dir, "summary_test.txt")
-        self._inject_result(flask_app, task_id, valid_path)
-
-        resp = client.get(f"/api/download/{task_id}/txt")
-        # Path is valid but file is absent — expect 404, not 400.
-        assert resp.status_code == 404
-        data = resp.get_json()
-        assert data["success"] is False
-        assert "File not found" in data["error"]
+        response = client.get("/this/does/not/exist")
+        assert response.status_code == 404

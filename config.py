@@ -211,6 +211,25 @@ class RateLimitConfig:
     max_requests: int = int(os.getenv("RATE_LIMIT_MAX", "10"))
     # Window length in seconds
     window_seconds: int = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
+    auth_max_requests: int = int(os.getenv("AUTH_RATE_LIMIT_MAX", "5"))
+    auth_window_seconds: int = int(os.getenv("AUTH_RATE_LIMIT_WINDOW", "300"))
+    polling_max_requests: int = int(os.getenv("POLL_RATE_LIMIT_MAX", "60"))
+    polling_window_seconds: int = int(os.getenv("POLL_RATE_LIMIT_WINDOW", "60"))
+    admin_max_requests: int = int(os.getenv("ADMIN_RATE_LIMIT_MAX", "10"))
+    admin_window_seconds: int = int(os.getenv("ADMIN_RATE_LIMIT_WINDOW", "300"))
+
+
+@dataclass
+class AuthConfig:
+    """Authentication and authorisation settings."""
+
+    seed_admin_username: str = os.getenv("ADMIN_USER", "admin")
+    seed_admin_password: str = os.getenv("ADMIN_PASSWORD", "")
+    jwt_expires_hours: int = int(os.getenv("JWT_EXPIRES_HOURS", "24"))
+    jwt_cookie_csrf_protect: bool = (
+        os.getenv("JWT_COOKIE_CSRF_PROTECT", "true").lower() == "true"
+    )
+    jwt_cookie_secure: bool = os.getenv("FLASK_DEBUG", "false").lower() != "true"
 
 
 # ---------------------------------------------------------------------------
@@ -234,6 +253,7 @@ class Config:
         self.logging = LoggingConfig()
         self.model = ModelConfig()
         self.rate_limit = RateLimitConfig()
+        self.auth = AuthConfig()
 
     def update_from_args(self, args: object) -> None:
         """Apply CLI argument overrides (argparse namespace)."""

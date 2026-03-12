@@ -11,15 +11,17 @@ from datetime import datetime
 from pathlib import Path
 
 from config import SUPPORTED_FORMATS, config
+from modules.cache import CacheBackend, create_cache_backend
 
 
 class FileManager:
     """Manages file operations and output formatting"""
 
-    def __init__(self):
+    def __init__(self, cache_backend: CacheBackend | None = None):
         self.logger = logging.getLogger(__name__)
         self.output_dir = Path(config.output.output_dir)
         self.cache_dir = Path(config.output.cache_dir)
+        self.cache_backend = cache_backend or create_cache_backend(ttl=config.output.cache_ttl)
         self._ensure_directories()
 
     def _ensure_directories(self):
@@ -301,23 +303,10 @@ class FileManager:
             return None
 
         cache_key = self._get_cache_key(url)
-        cache_file = self.cache_dir / f"{cache_key}.json"
-
-        if cache_file.exists():
-            try:
-                with open(cache_file, encoding="utf-8") as f:
-                    cached_data = json.load(f)
-
-                # Check if cache is still valid (24 hours)
-                cached_time = datetime.fromisoformat(cached_data.get("cached_at", ""))
-                if (datetime.now() - cached_time).total_seconds() < config.output.cache_ttl:
-                    self.logger.info("Using cached result")
-                    return cached_data
-
-            except Exception as e:
-                self.logger.warning(f"Failed to load cached result: {str(e)}")
-
-        return None
+        cached_data = self.cache_backend.get(cache_key)
+        if cached_data:
+            self.logger.info("Using cached result")
+        return cached_data
 
     def save_to_cache(self, url: str, result_data: dict):
         """Save result to cache"""
@@ -325,18 +314,12 @@ class FileManager:
             return
 
         cache_key = self._get_cache_key(url)
-        cache_file = self.cache_dir / f"{cache_key}.json"
-
         try:
             cache_data = result_data.copy()
             cache_data["cached_at"] = datetime.now().isoformat()
             cache_data["url"] = url
-
-            with open(cache_file, "w", encoding="utf-8") as f:
-                json.dump(cache_data, f, indent=2, ensure_ascii=False)
-
+            self.cache_backend.set(cache_key, cache_data, ttl=config.output.cache_ttl)
             self.logger.info("Result cached successfully")
-
         except Exception as e:
             self.logger.warning(f"Failed to cache result: {str(e)}")
 
@@ -346,15 +329,12 @@ class FileManager:
 
     def clear_cache(self):
         """Clear all cached files"""
-        if not config.output.cache_enabled or not self.cache_dir.exists():
+        if not config.output.cache_enabled:
             return
 
         try:
-            for cache_file in self.cache_dir.glob("*.json"):
-                cache_file.unlink()
-
+            self.cache_backend.clear_all()
             self.logger.info("Cache cleared successfully")
-
         except Exception as e:
             self.logger.warning(f"Failed to clear cache: {str(e)}")
 

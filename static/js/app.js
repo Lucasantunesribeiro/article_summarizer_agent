@@ -13,21 +13,17 @@ function showAlert(message, type = 'info') {
     alertContainer.innerHTML = alertHTML;
     setTimeout(() => {
         const alert = document.getElementById(alertId);
-        if (alert) { new bootstrap.Alert(alert).close(); }
+        if (alert) {
+            new bootstrap.Alert(alert).close();
+        }
     }, 5000);
 }
 
 async function clearCache() {
-    const tokenInput = document.getElementById('adminToken');
-    const token = tokenInput ? tokenInput.value : '';
-    if (!token) {
-        showAlert('<i class="bi bi-exclamation-triangle"></i> Admin Token required. Set it in Configurações.', 'warning');
-        return;
-    }
     try {
-        const response = await fetch('/api/limpar-cache', {
+        const response = await authFetch('/api/limpar-cache', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token }
+            headers: { 'Content-Type': 'application/json' },
         });
         const data = await response.json();
         if (data.success) {

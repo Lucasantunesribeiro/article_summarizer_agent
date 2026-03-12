@@ -221,7 +221,6 @@ class WebScraper:
 
         # Circuit breaker check — fail fast if the host is known-broken
         if circuit_breaker.is_open(hostname):
-            status = circuit_breaker.get_status(hostname)
             raise CircuitOpenError(hostname) from None
 
         @retry(

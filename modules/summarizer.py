@@ -76,6 +76,8 @@ class Summarizer:
         effective_length = length or config.summarization.summary_length
 
         try:
+            if effective_method == "generative" and self._gemini is None:
+                self._gemini = self._try_init_gemini()
             if effective_method == "generative" and self._gemini is not None:
                 result = self._gemini.summarize(  # type: ignore[attr-defined]
                     processed_data
