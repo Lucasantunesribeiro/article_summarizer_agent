@@ -110,6 +110,29 @@ class AuditLog(Base):
         }
 
 
+class DeadLetterEntry(Base):
+    __tablename__ = "dead_letter_entries"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    task_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    celery_task_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    exception: Mapped[str | None] = mapped_column(Text, nullable=True)
+    traceback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retry_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "task_id": self.task_id,
+            "celery_task_id": self.celery_task_id,
+            "exception": self.exception,
+            "traceback": self.traceback,
+            "retry_count": self.retry_count,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 class Setting(Base):
     __tablename__ = "settings"
 
