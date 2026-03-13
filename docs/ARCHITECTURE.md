@@ -1,13 +1,21 @@
 # Architecture: Article Summarizer Agent
 
+> **v3.1** — Updated to reflect Clean Architecture refactor, RabbitMQ integration, outbox pattern, idempotency, Prometheus/Grafana observability stack, and React SPA frontend.
+
 ## Overview
 
-The Article Summarizer Agent is a Flask web application that accepts a URL, extracts the article text, processes it, and produces a summary. The pipeline runs asynchronously in a background thread so the HTTP request returns immediately with a task ID that the client polls for progress.
+The Article Summarizer Agent is a monolithic modular Flask web application following Clean Architecture. It accepts a URL, scrapes the article, processes text, generates a summary (extractive TF-IDF or Gemini), and persists results. Processing is asynchronous via Celery with RabbitMQ as the broker.
 
-The application has two layers:
+### Layer Summary
 
-- **Web layer** (`app.py`): Handles HTTP, task lifecycle, threading, and file downloads.
-- **Pipeline layer** (`main.py` + `modules/`): Executes the five-step extraction and summarization pipeline.
+| Layer | Directory | Responsibility |
+|---|---|---|
+| Presentation | `presentation/` | Flask blueprints (api, auth, web), request/response |
+| Application | `application/` | Commands, queries, handlers, event bus, ports |
+| Domain | `domain/` | Entities, events, repository contracts |
+| Infrastructure | `infrastructure/` | SQLAlchemy repos, pipeline runner, auth, DI container |
+| Cross-cutting | `modules/` | Scraper, NLP, cache, rate limiter, circuit breaker, metrics |
+| Async | `tasks/` | Celery task definitions and outbox relay |
 
 ---
 
@@ -215,6 +223,40 @@ Some articles require JavaScript execution to render content (single-page apps, 
 This Selenium usage is legitimate JS rendering only. It uses standard `chromedriver` with no stealth arguments, no fingerprint spoofing, and no human-behaviour simulation. WAF bypass via Selenium is explicitly prohibited — see `SECURITY.md`.
 
 ---
+
+## v3.1 Infrastructure Topology
+
+```mermaid
+flowchart TD
+    Client -->|HTTP| Flask[Flask API :8080]
+    Flask -->|JWT auth| AuthBP[auth blueprint]
+    Flask -->|REST| ApiBP[api blueprint]
+    Flask -->|HTML| WebBP[web blueprint]
+
+    ApiBP -->|SubmitSummarizationCommand| Handler[SubmitSummarizationHandler]
+    Handler -->|persist task| TaskRepo[SqlAlchemyTaskRepository]
+    Handler -->|persist outbox entry| OutboxRepo[SqlAlchemyOutboxRepository]
+    Handler -->|publish TaskSubmitted| EventBus[In-process EventBus]
+    EventBus -->|dispatch| Dispatcher[AsyncTaskDispatcher]
+    Dispatcher -->|task.delay| RabbitMQ[RabbitMQ :5672]
+    RabbitMQ -->|consume| Worker[Celery Worker]
+    Worker -->|process| Pipeline[ArticlePipelineRunner]
+    Pipeline -->|scrape| Scraper[WebScraper + SSRF guard]
+    Pipeline -->|summarize| Summarizer[Summarizer TF-IDF / Gemini]
+    Pipeline -->|update task| TaskRepo
+
+    OutboxRelay[Celery Beat: outbox_relay every 30s] -->|mark published| OutboxRepo
+
+    TaskRepo --> Postgres[(PostgreSQL)]
+    OutboxRepo --> Postgres
+    Flask -->|cache| Redis[(Redis)]
+    Flask -->|metrics| Prometheus[Prometheus :9090]
+    Prometheus --> Grafana[Grafana :3001]
+
+    subgraph Frontend
+        ReactSPA[React SPA :3000] -->|API proxy| Flask
+    end
+```
 
 ## Directory Structure
 

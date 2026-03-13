@@ -41,7 +41,7 @@ The following threats are in scope. Controls implemented (or planned for post-re
 - Enforce HTTPS-only URLs (reject `http://` scheme).
 - Log and alert on SSRF-blocked requests.
 
-**Current status:** Not yet implemented. The current `validar_url()` in `app.py` checks only for a non-empty scheme and netloc — it does not resolve or filter IP ranges. **This must be fixed before any public deployment.**
+**Current status:** Implemented in `modules/web_scraper.py` via `_check_ssrf()`. All private, loopback, link-local, and metadata CIDRs are blocked before every outbound HTTP request.
 
 ---
 
@@ -66,7 +66,7 @@ The following threats are in scope. Controls implemented (or planned for post-re
 - `GET /api/tarefa/<id>` polling should be limited to 60 requests per minute per IP to prevent polling storms.
 - Use `flask-limiter` with a Redis storage backend in production (in-memory backend acceptable for single-instance local deployment).
 
-**Current status:** No rate limiting is implemented. **This must be fixed before any public deployment.**
+**Current status:** Implemented. Per-IP sliding-window rate limiters are applied on submit, auth, polling, and admin endpoints via `modules/rate_limiter.py`. Limits are configurable at runtime via settings API.
 
 ---
 
@@ -93,7 +93,7 @@ The following threats are in scope. Controls implemented (or planned for post-re
 - Set Flask's `MAX_CONTENT_LENGTH` for incoming request bodies (recommended: 1 MB).
 - The summarizer's text processing should truncate input beyond a configurable token limit before invoking any model.
 
-**Current status:** No size limits are implemented. **This must be fixed before any public deployment.**
+**Current status:** Maximum response size is enforced in `modules/web_scraper.py` via `config.scraping.max_content_bytes`. The Gemini summarizer truncates input to `max_input_chars` before calling the API.
 
 ---
 
@@ -101,16 +101,28 @@ The following threats are in scope. Controls implemented (or planned for post-re
 
 | Control | Status | Location |
 |---|---|---|
-| SSRF IP range blocking | Not implemented | `app.py` / `web_scraper.py` |
-| HTTPS-only URL enforcement | Not implemented | `app.py` |
-| SSL certificate verification | Disabled (broken) | `web_scraper.py` — must be re-enabled |
-| Content-size limit | Not implemented | `web_scraper.py` |
-| Rate limiting | Not implemented | `app.py` |
-| SECRET_KEY enforcement | Implemented | `app.py` lines 73–82 |
+| SSRF IP range blocking | Implemented | `modules/web_scraper.py` — `_check_ssrf()` |
+| HTTPS-only URL enforcement | Implemented | `presentation/blueprints/api.py` |
+| SSL certificate verification | Implemented (`verify=True`) | `modules/web_scraper.py` |
+| Content-size limit | Implemented | `config.scraping.max_content_bytes` |
+| Rate limiting | Implemented (4 profiles) | `modules/rate_limiter.py` |
+| SECRET_KEY enforcement | Implemented | `presentation/app_factory.py` |
 | HTML autoescaping | Implemented (Jinja2 default) | All templates |
-| No stack traces in API errors | Implemented | `app.py` error handlers |
+| No stack traces in API errors | Implemented | `presentation/app_factory.py` error handlers |
 | .env excluded from git | Implemented | `.gitignore` |
-| WAF bypass code | Present — must be removed | `web_scraper.py`, `selenium_scraper.py` |
+| WAF bypass code | Removed | Clean HTTP only |
+| JWT RBAC | Implemented | `presentation/blueprints/auth.py`, `domain/entities.py` |
+| JWT secret rotation with grace period | Implemented | `modules/secrets_manager.py` |
+| CSP nonce per request | Implemented | `presentation/app_factory.py` — `_add_security_headers` |
+| CSRF token in cookies | Implemented | Flask-JWT-Extended cookie CSRF |
+| Path traversal guard | Implemented (`is_relative_to`) | `presentation/blueprints/helpers.py` |
+| /metrics token auth | Implemented (`METRICS_TOKEN` env) | `presentation/blueprints/api.py` |
+| Correlation ID | Implemented (`X-Request-ID`) | `presentation/app_factory.py` |
+| Idempotency key deduplication | Implemented (`X-Idempotency-Key`) | `application/handlers/task_handlers.py` |
+| Outbox pattern for event durability | Implemented | `infrastructure/repositories.py`, `tasks/outbox_relay.py` |
+| Dead Letter Queue model | Implemented | `models.py` — `DeadLetterEntry` |
+| RabbitMQ AMQP persistent broker | Implemented | `celery_app.py`, `docker-compose.yml` |
+| Audit log | Implemented | `models.py` — `AuditLog`, `domain/entities.py` |
 
 ---
 
