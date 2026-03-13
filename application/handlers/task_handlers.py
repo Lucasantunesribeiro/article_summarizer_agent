@@ -82,8 +82,20 @@ class ProcessTaskHandler:
         self._event_bus = event_bus
 
     def handle(self, task_id: str, url: str, method: str, length: str) -> dict:
+        try:
+            from modules.metrics import ACTIVE_TASKS
+
+            ACTIVE_TASKS.inc()
+        except Exception:
+            pass
         task = self._task_repository.get(task_id)
         if not task:
+            try:
+                from modules.metrics import ACTIVE_TASKS
+
+                ACTIVE_TASKS.dec()
+            except Exception:
+                pass
             raise ValueError(f"Task {task_id} not found.")
 
         task.mark_processing()
@@ -99,6 +111,13 @@ class ProcessTaskHandler:
         except Exception as exc:
             failure = FailTaskCommand(task_id=task_id, error=str(exc))
             return FailTaskHandler(self._task_repository, self._event_bus).handle(failure)
+        finally:
+            try:
+                from modules.metrics import ACTIVE_TASKS
+
+                ACTIVE_TASKS.dec()
+            except Exception:
+                pass
 
 
 class CompleteTaskHandler:
@@ -112,6 +131,16 @@ class CompleteTaskHandler:
             raise ValueError(f"Task {command.task_id} not found.")
         task.mark_completed(command.result)
         self._task_repository.update(task)
+        try:
+            from modules.metrics import SUMMARIZATION_DURATION, SUMMARIZATION_REQUESTS
+
+            SUMMARIZATION_REQUESTS.labels(
+                status="success", method=task.method or "extractive"
+            ).inc()
+            if task.execution_time:
+                SUMMARIZATION_DURATION.observe(task.execution_time)
+        except Exception:
+            pass
         self._event_bus.publish(
             TaskCompleted(
                 aggregate_id=task.id,
@@ -137,6 +166,14 @@ class FailTaskHandler:
             raise ValueError(f"Task {command.task_id} not found.")
         task.mark_failed(command.error)
         self._task_repository.update(task)
+        try:
+            from modules.metrics import SUMMARIZATION_REQUESTS
+
+            SUMMARIZATION_REQUESTS.labels(
+                status="failure", method=task.method or "extractive"
+            ).inc()
+        except Exception:
+            pass
         self._event_bus.publish(
             TaskFailed(
                 aggregate_id=task.id,
