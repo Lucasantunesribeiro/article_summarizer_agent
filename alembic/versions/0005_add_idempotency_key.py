@@ -21,12 +21,15 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.add_column("tasks", sa.Column("idempotency_key", sa.String(64), nullable=True))
-    op.create_unique_constraint("uq_tasks_idempotency_key", "tasks", ["idempotency_key"])
-    op.create_index("ix_tasks_idempotency_key", "tasks", ["idempotency_key"])
+    # Use batch mode for SQLite compatibility
+    with op.batch_alter_table("tasks") as batch_op:
+        batch_op.add_column(sa.Column("idempotency_key", sa.String(64), nullable=True))
+        batch_op.create_unique_constraint("uq_tasks_idempotency_key", ["idempotency_key"])
+        batch_op.create_index("ix_tasks_idempotency_key", ["idempotency_key"])
 
 
 def downgrade() -> None:
-    op.drop_index("ix_tasks_idempotency_key", table_name="tasks")
-    op.drop_constraint("uq_tasks_idempotency_key", "tasks", type_="unique")
-    op.drop_column("tasks", "idempotency_key")
+    with op.batch_alter_table("tasks") as batch_op:
+        batch_op.drop_index("ix_tasks_idempotency_key")
+        batch_op.drop_constraint("uq_tasks_idempotency_key", type_="unique")
+        batch_op.drop_column("idempotency_key")
