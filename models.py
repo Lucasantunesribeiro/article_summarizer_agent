@@ -110,6 +110,31 @@ class AuditLog(Base):
         }
 
 
+class OutboxEntry(Base):
+    __tablename__ = "outbox_entries"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    event_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    aggregate_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    retry_count: Mapped[int] = mapped_column(nullable=False, default=0)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "event_type": self.event_type,
+            "aggregate_id": self.aggregate_id,
+            "payload": self.payload,
+            "status": self.status,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "published_at": self.published_at.isoformat() if self.published_at else None,
+            "retry_count": self.retry_count,
+        }
+
+
 class DeadLetterEntry(Base):
     __tablename__ = "dead_letter_entries"
 

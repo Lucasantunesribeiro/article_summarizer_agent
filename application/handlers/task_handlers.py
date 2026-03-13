@@ -42,9 +42,11 @@ class SubmitSummarizationHandler:
         self,
         task_repository: TaskRepository,
         event_bus: EventBus,
+        outbox_repository=None,
     ) -> None:
         self._task_repository = task_repository
         self._event_bus = event_bus
+        self._outbox_repository = outbox_repository
 
     def handle(self, command: SubmitSummarizationCommand) -> SummarizationTask:
         task = SummarizationTask(
@@ -55,6 +57,25 @@ class SubmitSummarizationHandler:
             message="Queued...",
         )
         self._task_repository.add(task)
+        if self._outbox_repository is not None:
+            try:
+                from domain.entities import OutboxEntry
+
+                outbox_entry = OutboxEntry(
+                    id=str(uuid4()),
+                    event_type="task.submitted",
+                    aggregate_id=task.id,
+                    payload={
+                        "task_id": task.id,
+                        "url": task.url,
+                        "method": task.method,
+                        "length": task.length,
+                        "client_ip": command.client_ip,
+                    },
+                )
+                self._outbox_repository.add(outbox_entry)
+            except Exception:
+                pass
         self._event_bus.publish(
             TaskSubmitted(
                 aggregate_id=task.id,
