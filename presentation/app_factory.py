@@ -115,9 +115,16 @@ def create_app() -> Flask:
     def _set_nonce():
         g.csp_nonce = secrets.token_urlsafe(16)
 
+    @app.before_request
+    def _set_request_id():
+        from uuid import uuid4
+
+        g.request_id = request.headers.get("X-Request-ID") or str(uuid4())
+
     @app.after_request
     def _add_security_headers(response):
         nonce = getattr(g, "csp_nonce", "")
+        response.headers["X-Request-ID"] = getattr(g, "request_id", "")
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -129,32 +136,26 @@ def create_app() -> Flask:
             "img-src 'self' data:; "
             "connect-src 'self';"
         )
+        try:
+            from modules.metrics import HTTP_REQUESTS
+
+            HTTP_REQUESTS.labels(
+                method=request.method,
+                endpoint=request.endpoint or "unknown",
+                status=str(response.status_code),
+            ).inc()
+        except Exception:
+            pass
         return response
 
     try:
-        from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, generate_latest
+        from prometheus_client import generate_latest
 
-        registry = CollectorRegistry(auto_describe=True)
+        from modules.metrics import REGISTRY
+
         app.extensions["prometheus"] = {
             "generate_latest": generate_latest,
-            "registry": registry,
-            "request_counter": Counter(
-                "summarization_requests_total",
-                "Total summarisation requests",
-                ["route", "status"],
-                registry=registry,
-            ),
-            "active_tasks": Gauge(
-                "active_tasks_gauge",
-                "Currently active summarisation tasks",
-                registry=registry,
-            ),
-            "duration_histogram": Histogram(
-                "summarization_duration_seconds",
-                "Summarisation task duration",
-                buckets=[1, 5, 10, 30, 60, 120, 300],
-                registry=registry,
-            ),
+            "registry": REGISTRY,
         }
     except ImportError:
         app.extensions["prometheus"] = None
