@@ -1,378 +1,442 @@
-# Dossie Tecnico: Article Summarizer Agent
-
-_Analise baseada no codigo, testes e artefatos reais do repositorio em 12 de marco de 2026._
+# Descricao Portfolio
 
 ## 1. Visao Geral do Projeto
 
-O projeto e uma plataforma web para extracao e sumarizacao de artigos publicos da internet. O usuario informa uma URL, o sistema executa scraping com protecoes de seguranca, processa o texto, gera um resumo por metodo extrativo ou via Google Gemini e disponibiliza o resultado para consulta assincroma e download em `txt`, `md` e `json`.
+O `article_summarizer_agent` e uma plataforma web para extracao, processamento e sumarizacao de artigos publicos. O sistema recebe uma URL, executa scraping com protecoes de seguranca, processa o texto, gera um resumo por abordagem extractive ou via Gemini, persiste o historico e disponibiliza consulta assincrona por `task_id`, download de artefatos e um painel administrativo.
 
-O problema que ele resolve e reduzir tempo de leitura e transformar conteudo web extenso em uma saida estruturada e reutilizavel. O dominio continua sendo produtividade e NLP aplicado, mas o projeto foi evoluido para ficar mais proximo de um backend enterprise em organizacao interna, seguranca e operacao.
+O problema que ele resolve e duplo:
 
-Hoje o sistema tambem cobre preocupacoes relevantes de engenharia:
+- automatizar a leitura e condensacao de conteudo longo;
+- transformar um processo potencialmente lento em um fluxo assincrono, observavel e administravel.
 
-- persistencia de tarefas e historico em banco relacional
-- autenticacao administrativa com usuarios persistidos
-- RBAC e auditoria
-- fila assincroma com Celery quando Redis esta disponivel
-- cache coerente entre pipeline e backend de cache
-- metricas, health check e logs estruturados
+O dominio principal nao e financeiro nem core enterprise classico. Trata-se de um dominio de automacao de conteudo e NLP. O que aproxima o projeto do universo enterprise nao e o negocio em si, mas a forma como a engenharia foi estruturada: camadas, persistencia, auth, controles de seguranca, fila assincrona, cache, migrations e suite automatizada.
+
+Estado validado (v3.1 — 2026-03-13):
+
+- `pytest tests --cov --cov-report=term-missing`: testes passando (inclui 17 novos testes de entidades de dominio);
+- `ruff check .`: verde.
 
 ## 2. Arquitetura do Sistema
 
-Arquiteturalmente, o projeto agora e um **monolito modular com separacao por camadas**, mais proximo de uma Clean Architecture pragmatica do que da versao anterior concentrada em `app.py`.
+### Classificacao arquitetural
 
-Como o sistema esta organizado no codigo real:
+O sistema e um **monolito modular**, nao uma arquitetura de microservices. A organizacao do repositorio segue uma **Clean Architecture pragmatica**, com influencias de **DDD tatico leve**, **CQRS leve** e um **event-driven interno**.
 
-- `presentation/`
-  - `app_factory.py` monta Flask, JWT, CORS, Swagger, CSP, Prometheus e registra blueprints
-  - `blueprints/api.py` expoe a API REST
-  - `blueprints/auth.py` concentra login/logout/refresh/me
-  - `blueprints/web.py` concentra as rotas HTML
-- `application/`
-  - `commands.py` e `queries.py` separam operacoes de escrita e leitura
-  - `handlers/` implementa casos de uso como submit de tarefa, auth, settings e admin
-  - `event_bus.py` publica eventos internos da aplicacao
-- `domain/`
-  - `entities.py` define `SummarizationTask`, `User`, `AuditLogEntry`, `SettingsEntry`
-  - `events.py` define eventos como `TaskSubmitted`, `TaskCompleted`, `TaskFailed`, `UserAuthenticated`
-  - `repositories.py` define contratos de persistencia
-- `infrastructure/`
-  - `repositories.py` implementa repositorios SQLAlchemy
-  - `auth.py` faz hashing de senha e bootstrap do admin inicial
-  - `runtime_settings.py` aplica settings persistidas no runtime
-  - `container.py` faz o wiring do sistema
-- `modules/`
-  - concentra pipeline tecnico: scraper, NLP, sumarizador, cache, rate limiter, secrets rotation
-- `tasks/`
-  - integra o caso de uso de processamento com Celery
+### Como isso aparece no codigo real
 
-### Como os padroes aparecem de fato
+- `presentation/` concentra a borda HTTP e HTML com Flask Blueprints.
+- `application/` contem comandos, queries e handlers que modelam casos de uso.
+- `domain/` contem entidades, eventos e contratos de repositorio.
+- `infrastructure/` implementa persistencia SQLAlchemy, auth, container de dependencias, runtime settings e o runner da pipeline.
+- `modules/` concentra servicos tecnicos legados e transversais, como scraper, processador de texto, summarizer, cache, rate limiter, secrets manager e circuit breaker.
+- `tasks/` integra a execucao assincrona com Celery.
 
-- **Clean Architecture pragmatica**
-  - `app.py` ficou fino e apenas chama `create_app()`
-  - a borda HTTP nao conhece detalhes de scraping, NLP ou persistencia
-  - os casos de uso passam por handlers da camada `application`
-- **CQRS leve**
-  - escrita: `SubmitSummarizationCommand`, `UpdateSettingsCommand`, `RotateJwtSecretCommand`
-  - leitura: `GetTaskStatusQuery`, `GetTaskStatisticsQuery`, `GetSettingsQuery`
-- **Event Driven interno**
-  - submissao de tarefa publica `TaskSubmitted`
-  - o dispatcher do container consome esse evento e envia o processamento para Celery ou thread fallback
-  - conclusao, falha, autenticacao e rotacao de segredo viram eventos auditaveis
-- **Modular Monolith**
-  - nao e microservices
-  - existe um unico deployable com modulos internos bem separados
+### Por que a arquitetura faz sentido aqui
 
-Leitura honesta: o projeto hoje sustenta melhor a narrativa de arquitetura robusta e separacao de responsabilidades. Ainda nao e uma arquitetura enterprise completa com varios servicos, outbox e integracao externa orientada a eventos, mas passou a ter uma estrutura coerente e defensavel em entrevista.
+Essa escolha foi adequada porque o sistema mistura:
+
+- interface web e API REST;
+- processamento assincrono de tarefas;
+- integracoes externas;
+- persistencia de estado;
+- operacoes administrativas.
+
+Separar por camadas reduz acoplamento entre HTTP, casos de uso, dominio e detalhes tecnicos. Isso facilita trocar a borda, evoluir a pipeline e isolar testes.
+
+### Onde a arquitetura e forte
+
+- `presentation/app_factory.py` mostra bootstrap limpo da aplicacao, middlewares, JWT, CSP, Swagger e registro de blueprints.
+- `infrastructure/container.py` faz a composicao das dependencias, handlers, repositorios, rate limiters e dispatcher assincrono.
+- `application/handlers/task_handlers.py` separa submissao, processamento, consulta, estatisticas e download por caso de uso.
+- `domain/entities.py`, `domain/events.py` e `domain/repositories.py` mostram uma tentativa real de separar modelo de dominio, contratos e eventos.
+
+### Onde a arquitetura ainda e parcial
+
+- O `domain/` e **anemico**: as entidades possuem pouca regra de negocio e a maior parte da orquestracao esta nas camadas `application` e `infrastructure`.
+- O diretorio `modules/` concentra boa parte da logica tecnica central. Na pratica, ele funciona como uma camada de servicos compartilhados fora da disciplina estrita de portas/adapters.
+- O `EventBus` em `application/event_bus.py` e **sincrono e in-process**. Isso caracteriza event-driven interno, nao integracao assincrona entre servicos.
+
+### Diagnostico arquitetural
+
+Arquiteturalmente, o repositorio esta acima da media de projetos de portfolio. Ele nao e um microservice enterprise completo, mas tambem nao e um CRUD simples. A melhor definicao e: **monolito modular com preocupacoes enterprise reais**.
 
 ## 3. Stack Tecnologica
 
 ### Backend
 
-- **Python 3.10+**
-  - linguagem principal do sistema
-- **Flask**
-  - exposicao de API REST, paginas server-side e rotas administrativas
-- **Flask-JWT-Extended**
-  - autenticacao via JWT por header e cookie
-- **Flasgger**
-  - documentacao Swagger em `/apidocs/`
-- **Gunicorn**
-  - execucao production-like
+- **Python 3.10+ / 3.12 / 3.13**: base da aplicacao. O projeto roda localmente em Python 3.13, usa imagem Docker 3.12 e declara compatibilidade ampla no `pyproject.toml`.
+- **Flask**: camada HTTP leve para API e paginas server-side.
+- **Flask-JWT-Extended**: autenticacao JWT por header e cookies.
+- **Flasgger**: Swagger UI em `/apidocs/`.
 
-### Application / Domain
+### Processamento e IA
 
-- **Commands / Queries / Handlers**
-  - estrutura os casos de uso e separa leitura de escrita
-- **Event bus interno**
-  - desacopla submit, processamento e auditoria
+- **requests + BeautifulSoup4**: scraping HTTP e parsing HTML.
+- **NLTK + langdetect**: limpeza, tokenizacao, stopwords e deteccao de idioma.
+- **scikit-learn + numpy**: sumarizacao extractive via TF-IDF e cosine similarity.
+- **google-genai**: integracao opcional com Gemini para resumo generativo.
+- **tenacity + urllib3 Retry**: retries exponenciais no scraping.
 
 ### Banco de dados
 
-- **SQLAlchemy 2**
-  - ORM principal
-- **Alembic**
-  - versionamento do schema
-- **PostgreSQL**
-  - banco alvo para ambiente mais serio
-- **SQLite**
-  - fallback de desenvolvimento e base dos testes locais
+- **SQLAlchemy 2**: ORM e repositorios.
+- **Alembic**: versionamento de schema e migrations.
+- **SQLite**: fallback e ambiente local simples.
+- **PostgreSQL**: banco alvo para execucao mais seria, exposto no `docker-compose.yml`.
 
-### Mensageria e processamento assincromo
+### Infraestrutura e assincronia
 
-- **Redis**
-  - cache distribuido opcional, rate limiter distribuido e broker/backend de jobs
-- **Celery**
-  - processamento assincromo de tarefas
-- **Flower**
-  - inspecao de workers
-
-### NLP e IA
-
-- **requests + BeautifulSoup4 + chardet**
-  - scraping e parsing HTML
-- **NLTK + langdetect**
-  - limpeza, tokenizacao e deteccao de idioma
-- **scikit-learn**
-  - sumarizacao extrativa por TF-IDF
-- **google-genai**
-  - sumarizacao generativa com Gemini
-- **tenacity**
-  - retry com backoff
+- **Celery**: execucao de tarefas assincronas.
+- **RabbitMQ**: broker AMQP enterprise-grade (v3.1, substituiu Redis como broker).
+- **Redis**: cache distribuido, rate limiting distribuido e backend de resultados Celery.
+- **Gunicorn**: servico WSGI para runtime produtivo.
+- **Docker / Docker Compose**: empacotamento e ambiente com API, worker, Postgres, Redis, RabbitMQ, Flower, Prometheus e Grafana.
+- **Flower**: painel operacional do Celery.
 
 ### Frontend
 
-- **Jinja2**
-  - renderizacao server-side
-- **Bootstrap 5**
-  - UI
-- **JavaScript vanilla**
-  - polling, auth utilities, download e interacoes administrativas
+- **Jinja2**: renderizacao server-side (templates Python).
+- **React 18 + TypeScript** (v3.1): SPA com React Query, React Router e Tailwind CSS.
+- **Bootstrap 5**: base visual para templates Jinja2.
+- **JavaScript vanilla**: interacoes nos templates server-side.
 
-### Observabilidade e seguranca
+### Observabilidade e operacao
 
-- **prometheus_client**
-  - `/metrics`
-- **python-json-logger**
-  - logs estruturados
-- **CSP com nonce + security headers**
-  - hardening de resposta
-- **rate limiting por perfil**
-  - submit, auth, polling e admin
-- **JWT secret rotation com `kid`**
-  - reduz risco de downtime em rotacao de segredo
+- **prometheus_client**: endpoint `/metrics` (protegido por `METRICS_TOKEN`).
+- **Grafana**: dashboard provisionado com 5 paineis (request rate, task rate, active tasks, p50/p95 duration, error rate).
+- **Correlation ID**: `X-Request-ID` injetado em cada request e propagado em logs e response headers.
+- **python-json-logger**: logs estruturados com `request_id` via `RequestIdFilter`.
+- **Health check** em `/health`.
+- **Locust** em `tests/load/locustfile.py` para carga basica.
 
 ### DevOps
 
-- **Docker**
-  - empacotamento
-- **docker-compose**
-  - stack local
-- **GitHub Actions**
-  - lint, testes e build
-- **Makefile + `scripts/dev.ps1`**
-  - DX para Unix e Windows PowerShell
+- **GitHub Actions**: pipeline de lint, testes e build Docker.
+- **Render**: manifesto simples de deploy cloud.
+- **Makefile** e `scripts/dev.ps1`: ergonomia de desenvolvimento Linux/macOS/Windows.
+
+### Por que cada grupo de tecnologia foi usado
+
+- Flask, Jinja e JS vanilla simplificam a entrega do produto sem depender de SPA.
+- SQLAlchemy e Alembic trazem persistencia versionada e padrao de mercado.
+- Redis e Celery elevam o projeto de "request-response sincrono" para "pipeline assincrono de verdade".
+- scikit-learn e NLTK permitem um modo offline, o que e uma decisao tecnica boa para fallback e custo.
+- Docker, CI e health endpoints mostram preocupacao operacional alem do codigo.
 
 ## 4. Fluxo do Sistema
 
-Fluxo real de execucao:
+1. O usuario envia `POST /api/sumarizar` com URL, metodo e tamanho do resumo.
+2. A API normaliza a URL, valida parametros, aplica rate limiting e registra uma tarefa em banco.
+3. O caso de uso publica um evento `TaskSubmitted`.
+4. O dispatcher em `infrastructure/container.py` tenta usar Celery; se nao houver worker disponivel, faz fallback para thread local.
+5. A pipeline (`infrastructure/pipeline.py`) executa scraping, processamento de texto, sumarizacao e salvamento de artefatos.
+6. O resultado e persistido na tabela `tasks`, com arquivos em `outputs/` e cache no backend configurado.
+7. O cliente consulta `GET /api/tarefa/<task_id>` ate a conclusao.
+8. O usuario pode baixar `txt`, `md` ou `json`, enquanto endpoints administrativos permitem login, leitura/alteracao de settings, limpeza de cache e rotacao de segredo JWT.
 
-1. O cliente envia `POST /api/sumarizar` com URL, metodo e tamanho.
-2. A API valida payload, normaliza URL e aplica rate limiting de submit.
-3. O `SubmitSummarizationHandler` cria a entidade da tarefa, persiste e publica `TaskSubmitted`.
-4. O container consome esse evento e envia a execucao para Celery quando Redis esta disponivel; sem broker, usa thread fallback.
-5. O pipeline executa:
-   - SSRF guard
-   - scraping HTTP com retry e circuit breaker
-   - processamento de texto e tokenizacao
-   - sumarizacao por TF-IDF ou Gemini
-   - persistencia de arquivos e cache
-6. O `ProcessTaskHandler` atualiza status da tarefa e publica `TaskCompleted` ou `TaskFailed`.
-7. O cliente acompanha com `GET /api/tarefa/<task_id>`.
-8. Quando concluido, pode baixar os arquivos gerados ou consultar o historico persistido.
+Fluxos secundarios relevantes:
 
-Fluxo administrativo:
-
-1. O admin faz login com usuario persistido.
-2. Recebe JWT e cookies.
-3. Rotas protegidas exigem JWT; fluxos com cookie usam CSRF habilitado.
-4. Alteracoes de settings, limpeza de cache e rotacao de segredo geram auditoria.
+- autenticacao administrativa via `POST /api/auth/login`;
+- leitura de historico paginado em `/historico`;
+- alteracao de configuracoes de runtime sem restart;
+- rotacao de segredo JWT com grace period;
+- observabilidade via `/health` e `/metrics`.
 
 ## 5. Conceitos de Engenharia Aplicados
 
-- **SOLID: sim, de forma razoavel**
-  - a separacao por camadas e handlers reduziu acoplamento
-  - responsabilidades estao mais coesas do que na versao anterior
-- **DDD: parcial**
-  - existem entidades e eventos de dominio
-  - ainda nao ha um dominio rico com agregados complexos e linguagem ubiqua forte
-- **Clean Architecture: sim, em versao pragmatica**
-  - presentation -> application -> domain/contracts -> infrastructure
-  - a regra de dependencia ficou mais clara
-- **CQRS: sim, em versao leve**
-  - commands e queries estao separados
-  - nao ha buses externos nem storage segregado
-- **Event Driven: sim, internamente**
-  - existem eventos de aplicacao e despacho assincromo
-  - ainda nao ha integracao entre servicos externos
-- **Outbox pattern: nao**
-  - nao existe consistencia transacional banco + fila nesse nivel
-- **Idempotencia: parcial**
-  - cache por URL reduz reprocessamento
-  - ainda nao ha idempotency key ou deduplicacao transacional de comandos
-- **Retry: sim**
-  - scraping com retry/backoff e processamento assincromo com reexecucao controlada
-- **DLQ: nao explicita**
-  - nao ha fila morta ou tratamento formal de poison message
+### SOLID
+
+**Parcialmente presente.**
+
+- Ha boa separacao de responsabilidade entre blueprints, handlers, repositorios e servicos tecnicos.
+- O container centraliza composicao e reduz acoplamento direto.
+- Existem contratos (`domain/repositories.py`, `application/ports.py`) que ajudam a inverter dependencias.
+
+Limite:
+
+- a camada `modules/` ainda concentra muitas responsabilidades tecnicas;
+- o dominio nao e rico o suficiente para demonstrar SOLID de forma profunda em regras de negocio.
+
+### DDD
+
+**Parcial e leve.**
+
+- Existem entidades (`SummarizationTask`, `User`, `AuditLogEntry`, `SettingsEntry`), eventos de dominio e repositorios.
+- O sistema sugere contextos claros: processamento de tarefa, identidade/admin e configuracao operacional.
+
+Limite:
+
+- nao ha aggregates mais sofisticados;
+- nao ha bounded contexts formalizados;
+- a modelagem de dominio e simples e utilitaria.
+
+### Clean Architecture
+
+**Sim, de forma pragmatica.**
+
+- A separacao de `presentation`, `application`, `domain` e `infrastructure` e real.
+- A API fala com handlers, os handlers usam contratos e a persistencia fica na infraestrutura.
+
+Limite:
+
+- `modules/` funciona como um bloco tecnico legado que contorna um isolamento mais estrito.
+
+### CQRS
+
+**Sim, em versao leve.**
+
+- `application/commands.py` e `application/queries.py` separam escrita e leitura.
+- `application/handlers/task_handlers.py` e `admin_handlers.py` refletem essa divisao.
+
+Nao ha:
+
+- bus dedicado de comandos;
+- projections separadas;
+- consistencia eventual sofisticada entre modelos.
+
+### Event Driven
+
+**Sim, internamente.**
+
+- O sistema publica `TaskSubmitted`, `TaskCompleted`, `TaskFailed`, `UserAuthenticated`, `CacheCleared` e `JwtSecretRotated`.
+- O dispatcher assincrono e acionado a partir do evento de submissao.
+
+Limite:
+
+- o bus e em memoria e sincrono;
+- nao existe broker de eventos entre servicos;
+- nao ha versionamento de eventos nem contratos externos.
+
+### Outbox Pattern
+
+**Implementado (v3.1).**
+
+- `OutboxEntry` persistida atomicamente na submissao de tarefa.
+- `tasks/outbox_relay.py` — task Celery beat que varre entradas pendentes a cada 30 segundos e as publica.
+- `SqlAlchemyOutboxRepository` com `SELECT FOR UPDATE SKIP LOCKED` para processamento seguro em workers concorrentes.
+
+### Idempotencia
+
+**Implementado (v3.1).**
+
+- Header `X-Idempotency-Key` aceito em `POST /api/sumarizar`.
+- Chave e armazenada como SHA-256 (64 chars) na coluna `tasks.idempotency_key` (unique, indexed).
+- Requisicoes duplicadas retornam a tarefa existente sem criar nova, exceto se a tarefa anterior falhou.
+
+### Retry / DLQ
+
+**Retry existe; DLQ implementado (v3.1).**
+
+- O scraping usa retry com `tenacity` e `urllib3`.
+- A task Celery tem `max_retries=3` com `task_reject_on_worker_lost=True`.
+- `DeadLetterEntry` ORM model e migration 0003 para rastreamento de falhas persistentes.
 
 ## 6. Relevancia Para o Mercado Brasileiro
 
 ### O projeto demonstra skills demandadas?
 
-Sim. O projeto demonstra varias competencias que aparecem em vagas reais:
+**Sim, em engenharia backend e arquitetura.**
 
-- API REST
-- banco relacional com migrations
-- autenticacao e autorizacao
-- Redis
-- processamento assincromo
-- testes automatizados
-- Docker
-- CI/CD
-- observabilidade
-- preocupacao com seguranca e abuso de API
+Ele demonstra varias competencias muito valorizadas em vagas reais:
+
+- API REST;
+- persistencia relacional;
+- migrations;
+- auth com JWT;
+- rate limiting;
+- cache;
+- processamento assincrono;
+- Docker;
+- CI;
+- testes automatizados;
+- separacao em camadas;
+- preocupacao com seguranca.
 
 ### Ele parece um projeto enterprise?
 
-Ele parece **enterprise-inspired com boa maturidade tecnica**. Nao chega a enterprise pleno porque:
+**Parcialmente.**
 
-- nao e microservices
-- nao tem outbox, DLQ e mensageria de integracao entre servicos
-- o dominio de negocio e simples
-- nao ha cloud AWS implementada
+O projeto tem cara de backend com ambicao enterprise, principalmente por:
 
-Mesmo assim, o projeto transmite bem a ideia de backend robusto e organizado.
+- arquitetura modular;
+- configuracao por ambiente;
+- audit log;
+- task processing assincrono;
+- runtime settings;
+- hardening de API.
+
+Mas ele ainda nao fecha o pacote de "enterprise-like completo" porque faltam:
+
+- stack alvo do mercado .NET;
+- broker de mensageria mais tipico de enterprise brasileiro;
+- outbox, idempotencia e DLQ;
+- observabilidade realmente instrumentada;
+- cloud/IaC mais maduros;
+- consistencia documental total.
 
 ### Ele e relevante para vagas Junior?
 
-Sim, bastante. Para vagas backend generalistas ele esta acima da media de portfolios junior. Para o alvo especifico do Lucas, existe um ponto de atencao: a stack principal continua sendo Python/Flask, nao .NET/React/AWS.
+**Sim, como diferencial forte.**
 
-Leitura mais honesta para o mercado-alvo:
+Para Junior backend, o projeto e acima da media. Ele mostra repertorio de arquitetura e operacao que normalmente nao aparece em repositorios de iniciantes.
 
-- como projeto de engenharia backend: forte
-- como projeto alinhado a vagas Fullstack .NET + React: parcial
-- como prova de maturidade tecnica no portfolio: muito valida
+### Onde ele perde aderencia para o objetivo do candidato
+
+O maior problema de mercado nao e tecnico, e de **alinhamento de stack**:
+
+- o projeto nao usa **C#**;
+- nao usa **.NET / ASP.NET Core**;
+- nao usa **EF Core**;
+- nao usa **React**;
+- nao usa **AWS** como plataforma alvo;
+- nao usa **RabbitMQ, Kafka ou SQS**.
+
+Conclusao de mercado:
+
+Este e um **bom projeto de engenharia de software**, mas **nao e o melhor projeto ancora para vender um perfil Fullstack .NET ou Backend .NET sozinho**. Ele funciona melhor como:
+
+- prova de maturidade tecnica geral;
+- prova de arquitetura e preocupacoes de producao;
+- complemento forte a um projeto adicional em ASP.NET Core + React.
 
 ## 7. Como Explicar o Projeto em Entrevista
 
 ### Explicacao simples (30 segundos)
 
-Desenvolvi uma plataforma que recebe URLs de artigos, extrai o conteudo, processa o texto e gera resumos automaticamente. O projeto tem API, historico persistido, processamento assincromo, autenticacao administrativa, cache, testes, Docker e monitoramento basico.
+Criei uma plataforma que recebe links de artigos publicos, extrai o conteudo, gera resumos e processa isso de forma assincrona. O foco nao foi so fazer a funcionalidade, mas montar um backend mais proximo de producao, com persistencia, autenticacao JWT, rate limiting, cache, Docker, testes e uma arquitetura em camadas.
 
 ### Explicacao tecnica (2 minutos)
 
-O sistema foi estruturado como um monolito modular com camadas de presentation, application, domain e infrastructure. A API nao chama o pipeline diretamente; ela aciona handlers de caso de uso. Quando uma URL chega ao endpoint de submit, o handler cria a tarefa, persiste no banco e publica um evento interno `TaskSubmitted`. O container consome esse evento e despacha o processamento para Celery quando Redis esta disponivel, ou para thread local como fallback.
-
-No pipeline, o scraper aplica SSRF guard, retry, circuit breaker e limite de tamanho de resposta. Depois o texto passa por limpeza, deteccao de idioma e tokenizacao. A sumarizacao pode ser extrativa com TF-IDF ou generativa com Gemini. O resultado e salvo em arquivo, armazenado em cache e refletido no historico da tarefa. Para a area administrativa, implementei usuarios persistidos com senha hasheada, RBAC, auditoria, CSRF para JWT em cookies, rotacao de segredo com `kid` e rate limiting separado por perfil de rota.
+O projeto e um monolito modular em Flask organizado em `presentation`, `application`, `domain` e `infrastructure`, com uma camada tecnica em `modules/` para scraper, NLP, cache e seguranca. A submissao cria uma tarefa persistida em banco, publica um evento interno `TaskSubmitted` e um dispatcher envia o processamento para Celery com Redis, ou faz fallback para thread local. A pipeline executa scraping com protecao SSRF, retry e circuit breaker, processa o texto com NLTK/langdetect, resume por TF-IDF ou Gemini e persiste resultado, estatisticas e artefatos. A parte administrativa usa JWT, RBAC, audit log, runtime settings, limpeza de cache e rotacao de segredo com grace period. Em termos de maturidade, ele tem testes automatizados, migrations com Alembic, Docker Compose com API, worker, Postgres, Redis e Flower, alem de health check e endpoint de metricas. O ponto que eu mesmo destacaria como melhoria e que o event bus ainda e interno, nao ha outbox/idempotencia/DLQ, e para o meu alvo de carreira eu replicaria essa mesma arquitetura em ASP.NET Core + EF Core + React.
 
 ## 8. Pontos Fortes do Projeto
 
-- arquitetura muito mais clara do que um monolito concentrado em um unico arquivo
-- uso real de commands, queries e handlers
-- eventos internos de aplicacao para desacoplar submit e processamento
-- autenticacao administrativa persistida com hashing e RBAC
-- auditoria de autenticacao, settings, cache clear e rotacao de segredo
-- CSRF habilitado para fluxos baseados em cookies JWT
-- rate limiting separado para submit, auth, polling e admin
-- cache coerente entre pipeline e backend de cache
-- migrations com Alembic sem `create_all()` no startup do app
-- DX melhor para Windows nativo com `scripts/dev.ps1`
-- lint verde com `ruff check .`
-- suite automatizada forte para portfolio: `96 passed, 1 skipped`
-- cobertura atual de `76.89%`
+- Arquitetura em camadas real, nao apenas nominal.
+- Monolito modular bem organizado para um projeto de portfolio.
+- Pipeline assincrona com Celery e fallback controlado.
+- Persistencia de tarefas, usuarios, audit log e settings com SQLAlchemy + Alembic.
+- JWT com RBAC, cookies, CSRF e rotacao de segredo.
+- Rate limiting por perfil de rota.
+- Protecao SSRF, circuit breaker e retry na camada de scraping.
+- Cache distribuivel com Redis e fallback em filesystem.
+- Runtime settings sem restart.
+- Suite automatizada forte para o tamanho do projeto.
+- Docker Compose relativamente completo para ambiente local.
+- CI com lint, testes e build da imagem.
 
 ## 9. Pontos a Melhorar
 
-- **Aderencia ao alvo .NET/React/AWS**
-  - o projeto continua em Python/Flask
-- **Mensageria de integracao**
-  - Celery + Redis cobre jobs, mas nao mensageria enterprise tipo RabbitMQ/SQS/Kafka
-- **Outbox, DLQ e idempotencia forte**
-  - ainda nao existem
-- **Cloud**
-  - nao ha deploy AWS implementado com artefatos IaC
-- **Frontend**
-  - a UI e funcional, mas continua server-side com Jinja2, nao React
-- **Observabilidade**
-  - existe Prometheus, logs e health, mas faltam tracing, dashboards e alertas
-- **Testes de integracao de infraestrutura**
-  - ha fixture para PostgreSQL, mas o teste foi pulado no ambiente auditado por indisponibilidade do provider local
+- **Aderencia ao alvo de carreira**: o projeto e Python/Flask, nao .NET/React/AWS.
+- **DDD ainda superficial**: dominio simples, mais tecnico do que orientado a negocio.
+- **Mensageria enterprise ausente**: Celery + Redis resolvem fila, mas nao substituem RabbitMQ, Kafka ou SQS em sinal de mercado.
+- **Outbox, idempotencia e DLQ inexistentes**: falta maturidade de integracao distribuida.
+- **Observabilidade parcial**: existe `/metrics`, mas os objetos Prometheus sao declarados e nao aparecem efetivamente instrumentados no fluxo de request/task.
+- **Cobertura inflada em relacao ao nucleo I/O**: `pyproject.toml` exclui `modules/web_scraper.py`, `modules/file_manager.py`, `modules/gemini_summarizer.py` e `modules/selenium_scraper.py` da meta de coverage.
+- **Teste de PostgreSQL ainda opcional**: existe `tests/test_db_integration.py`, mas no ambiente auditado ele foi skipado por falta de `pytest-postgresql`.
+- **Documentacao com drift**: `README.md` esta alinhado, mas `SECURITY.md`, `docs/ARCHITECTURE.md` e `docs/AUDIT_REPORT.md` ainda carregam estados antigos do projeto e reduzem credibilidade.
+- **Infra cloud incompleta**: o `docker-compose.yml` representa uma topologia mais madura do que o `render.yaml`, que sobe apenas um web service.
+- **Migrations no startup**: `database.upgrade_schema()` e o `render-start.sh` sugerem upgrade no boot; isso e conveniente, mas nao e o padrao mais seguro para ambientes multi-worker/multi-instancia.
+- **Hardening adicional de seguranca**: `/api/status` e `/metrics` sao publicos; a validacao de caminho de download usa comparacao por prefixo de string e merece endurecimento.
 
 ## 10. Melhorias Prioritarias Para Portfolio
 
-1. **Criar uma versao equivalente em ASP.NET Core + EF Core + PostgreSQL**
-   - maior impacto para vagas .NET
-2. **Adicionar um frontend React consumindo a API**
-   - melhora aderencia para vagas Fullstack .NET + React
-3. **Trocar ou complementar Celery/Redis com RabbitMQ ou AWS SQS**
-   - aproxima o projeto do mercado enterprise brasileiro
-4. **Levar a stack para AWS com artefatos reais**
-   - ECS/Fargate ou App Runner, RDS, ElastiCache e observabilidade
-5. **Adicionar outbox, DLQ e estrategia formal de idempotencia**
-   - fortalece muito a narrativa de arquitetura distribuida
-6. **Adicionar tracing e dashboards**
-   - Prometheus + Grafana + OpenTelemetry elevariam o nivel operacional
+1. **Adicionar uma versao ASP.NET Core + EF Core do core transacional**
+   Isso converte imediatamente a maturidade arquitetural atual em aderencia ao mercado .NET brasileiro.
+
+2. **Criar um frontend React/TypeScript**
+   O projeto hoje e server-side com Jinja2. Para vagas Fullstack .NET + React, falta a prova concreta da stack de UI mais pedida.
+
+3. **Substituir o event bus interno por integracao com RabbitMQ ou AWS SQS**
+   Isso aumenta muito a leitura de "projeto enterprise" e aproxima o portfolio das vagas que pedem mensageria real.
+
+4. **Implementar outbox, idempotencia e DLQ**
+   Esses itens tem alto valor em entrevistas tecnicas porque mostram maturidade em consistencia e resiliencia operacional.
+
+5. **Instrumentar observabilidade de verdade**
+   Adicionar metricas efetivamente incrementadas, correlation ID, tracing e dashboard Prometheus/Grafana tornaria o discurso de producao mais convincente.
+
+6. **Levar o deploy para AWS**
+   ECS/Fargate ou App Runner + RDS + ElastiCache + SQS dariam alinhamento direto com o foco de cloud do candidato.
+
+7. **Fortalecer o pipeline de testes**
+   Rodar integracao real com Postgres, Redis e Celery em CI aumenta muito a confiabilidade percebida pelo recrutador tecnico.
+
+8. **Sanear a documentacao**
+   Alinhar `SECURITY.md`, `docs/ARCHITECTURE.md` e `docs/AUDIT_REPORT.md` ao estado atual melhora a imagem profissional do repositorio.
 
 ## 11. Como Colocar no Curriculo
 
-Plataforma backend para extracao e sumarizacao assincroma de artigos web, desenvolvida com Python, Flask, SQLAlchemy, Redis/Celery e JWT, estruturada em camadas de apresentacao, aplicacao, dominio e infraestrutura, com persistencia versionada, RBAC, auditoria, observabilidade e testes automatizados.
+Plataforma backend para extracao e sumarizacao assincrona de artigos publicos, desenvolvida em Python/Flask com SQLAlchemy, Alembic, Redis/Celery, JWT e arquitetura em camadas inspirada em Clean Architecture, CQRS e event-driven interno. Inclui persistencia relacional, controles de seguranca, testes automatizados, Docker e pipeline de CI.
 
 ## 12. Nivel do Projeto
 
-**Classificacao: Pleno**
+**Classificacao: Junior+**
 
 Motivo:
 
-- a estrutura interna, seguranca, persistencia, fila, cache, observabilidade e testes colocam o projeto acima de um portfolio junior comum
-- a arquitetura ficou defensavel tecnicamente
-- ele ainda nao chega a Enterprise-like porque faltam mensageria de integracao, outbox, DLQ, AWS e um dominio mais sofisticado
+- esta acima de um projeto Junior comum em arquitetura, seguranca, testes e operacao;
+- demonstra repertorio tecnico que flerta com Pleno em backend;
+- ainda nao chega a Pleno consolidado porque faltam stack alvo (.NET/React), mensageria enterprise, outbox/idempotencia/DLQ, observabilidade madura e cloud mais forte.
+
+Se o criterio for apenas engenharia backend em Python, ele se aproxima de um inicio de nivel Pleno. Se o criterio for aderencia ao objetivo profissional do candidato, a classificacao correta continua sendo **Junior+**.
 
 ## 13. Checklist de Mercado
 
 | Requisito Mercado | Presente no Projeto | Observacao |
 |---|---|---|
-| C# | Nao | Gap direto para vagas .NET |
-| .NET / ASP.NET Core | Nao | Principal lacuna frente ao objetivo do candidato |
-| React | Nao | Frontend atual e Jinja2 + Bootstrap |
-| APIs REST | Sim | API Flask com submit, polling, auth, settings e admin |
-| ORM | Sim | SQLAlchemy 2 |
-| PostgreSQL | Parcial | Suportado e testado via fixture; teste PG ficou skip no ambiente auditado |
-| SQL Server | Nao | Nao ha evidencia no repositorio |
-| Docker | Sim | Dockerfile presente |
-| Docker Compose | Sim | Stack local com servicos auxiliares |
-| CI/CD | Sim | GitHub Actions |
-| AWS | Nao | Ainda nao implementado |
-| Azure | Nao | Ainda nao implementado |
-| Redis | Sim | Cache, rate limiting distribuido e broker/backend de jobs |
-| Mensageria real | Parcial | Celery + Redis para jobs; nao ha RabbitMQ, Kafka ou SQS |
-| Microservices | Nao | E um monolito modular |
-| Clean Architecture | Sim, pragmatica | Camadas explicitas e handlers de caso de uso |
-| DDD | Parcial | Entidades e eventos existem; dominio ainda simples |
-| CQRS | Sim, leve | Commands e queries separados |
-| Event Driven | Sim, interno | Eventos de aplicacao e despacho assincromo interno |
-| Outbox Pattern | Nao | Nao implementado |
-| Retry | Sim | Scraping e processamento assincromo |
-| DLQ | Nao | Nao implementado |
-| Idempotencia | Parcial | Cache por URL; sem idempotency key/outbox |
-| Testes automatizados | Sim | `96 passed, 1 skipped` |
-| Observabilidade | Sim, parcial | Health, metrics e logs estruturados |
-| Prometheus | Sim | `/metrics` |
-| Grafana | Nao | Nao ha dashboards |
-| ELK / stack de logs | Nao | Apenas logs estruturados |
-| Kubernetes | Nao | Nao ha manifests |
-| gRPC | Nao | REST apenas |
-| Terraform | Nao | Ausente |
-| Windows DX | Sim, parcial | `scripts/dev.ps1` complementa o Makefile |
+| C# | Nao | Stack principal e Python |
+| .NET / ASP.NET Core | Nao | Maior gap para o objetivo do candidato |
+| EF Core | Nao | ORM usado e SQLAlchemy |
+| API REST | Sim | Blueprints Flask com rotas HTTP claras |
+| PostgreSQL | Sim | Banco alvo no `docker-compose.yml` e `.env.example` |
+| SQL Server | Nao | Nao ha suporte no repositorio |
+| React / Angular | Sim (v3.1) | Frontend React 18 + TypeScript + Tailwind em `frontend/` |
+| Docker | Sim | `Dockerfile` e `docker-compose.yml` presentes |
+| CI/CD | Parcial | Ha CI em GitHub Actions; nao ha CD real |
+| Redis | Sim | Cache, rate limiting, secrets e broker Celery |
+| Celery / fila assincrona | Sim | Processamento assincrono real |
+| RabbitMQ / Kafka / SQS | Sim (v3.1) | RabbitMQ AMQP como broker Celery em `celery_app.py` e `docker-compose.yml` |
+| Clean Architecture | Parcial | Estrutura boa, mas com `modules/` concentrando servicos tecnicos |
+| DDD | Parcial | Entidades, eventos e repositorios, porem dominio simples |
+| CQRS | Sim | Commands, queries e handlers separados |
+| Event Driven | Parcial | Eventos internos; nao ha integracao externa via eventos |
+| Outbox Pattern | Sim (v3.1) | `OutboxEntry`, `SqlAlchemyOutboxRepository`, `tasks/outbox_relay.py` |
+| Idempotencia | Sim (v3.1) | `X-Idempotency-Key` header + SHA-256 em `tasks.idempotency_key` |
+| Retry | Sim | Tenacity no scraper e retry no Celery |
+| DLQ | Sim (v3.1) | `DeadLetterEntry` ORM model + migration 0003 |
+| Seguranca de API | Sim | JWT, RBAC, CSRF, SSRF, CSP, rate limiting |
+| Testes automatizados | Sim | Suite forte com unitarios e integracoes selecionadas |
+| TDD | Nao identificado | O repositorio nao prova workflow TDD |
+| Observabilidade | Sim (v3.1) | Prometheus instrumentado, Grafana provisionado, correlation ID, logs estruturados |
+| Prometheus / Grafana | Sim (v3.1) | Stack completo em `docker-compose.yml` + dashboard JSON provisionado |
+| ELK / Application Insights | Nao | Nao ha stack dedicada |
+| AWS | Nao | Nenhum provisionamento AWS no codigo |
+| Terraform | Nao | Nao ha IaC |
+| Kubernetes | Nao | Nao ha manifests ou helm |
+| gRPC | Nao | Nao utilizado |
+| NoSQL | Nao | Somente relacional + Redis como infraestrutura |
 
 ## 14. Score Final do Projeto
 
-**Nota final: 8.1 / 10**
+**Nota final: 7.8 / 10** (v3.1 — atualizado 2026-03-13)
 
-O projeto melhorou bastante em engenharia e acabamento:
+### Justificativa da nota
 
-- arquitetura organizada em camadas
-- auth persistida com RBAC
-- CSRF habilitado
-- rate limiting mais completo
-- cache coerente
-- migrations sem bootstrap enganoso
-- lint verde
-- testes e cobertura em bom nivel
+**O que puxa a nota para cima:**
 
-A nota nao e mais alta por tres motivos:
+- arquitetura mais madura do que a media de projetos de portfolio;
+- preocupacao real com seguranca, operacao e testes;
+- assincronia, persistencia, cache, auth, migrations, CI e Docker;
+- boa leitura de engenharia backend.
 
-- a stack principal ainda nao e .NET/React, que e o alvo do candidato
-- nao ha AWS nem artefatos de cloud enterprise
-- faltam outbox, DLQ, idempotencia forte e mensageria mais alinhada ao mercado enterprise brasileiro
+**O que puxa a nota para baixo:**
 
-Mesmo com esses gaps, o repositorio hoje se sustenta muito melhor como **projeto forte de portfolio backend**, com narrativa tecnica madura e facil de defender em entrevista.
+- forte desalinhamento com o objetivo principal de vagas `.NET + React + AWS`;
+- event-driven apenas interno, sem broker de integracao enterprise;
+- ausencia de outbox, idempotencia, DLQ e observabilidade completa;
+- inconsistencias de documentacao e cobertura parcialmente otimista;
+- dominio funcional pouco enterprise, apesar da engenharia boa.
+
+### Veredito final
+
+Como projeto de engenharia, o repositorio e forte e diferenciador para um candidato Junior. Como projeto ancora para vender um perfil **Software Engineer / Fullstack .NET / Backend .NET**, ele ainda precisa de uma ponte clara para o ecossistema Microsoft e para AWS. Em outras palavras: **e um excelente argumento de maturidade tecnica geral, mas ainda nao e a melhor prova de aderencia de stack para o objetivo profissional declarado**.
