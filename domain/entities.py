@@ -94,3 +94,15 @@ class SettingsEntry:
     key: str
     value: Any
     updated_at: datetime = field(default_factory=datetime.utcnow)
+
+
+@dataclass(slots=True)
+class OutboxEntry:
+    id: str
+    event_type: str
+    aggregate_id: str
+    payload: dict[str, Any]
+    status: str = "pending"
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    published_at: datetime | None = None
+    retry_count: int = 0
