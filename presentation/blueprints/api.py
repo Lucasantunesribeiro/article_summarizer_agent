@@ -78,6 +78,8 @@ def api_summarize():
             {"success": False, "error": 'length must be "short", "medium", or "long".'}
         ), 400
 
+    idempotency_key = request.headers.get("X-Idempotency-Key")
+
     container = get_container()
     task = container.submit_task_handler.handle(
         SubmitSummarizationCommand(
@@ -85,6 +87,7 @@ def api_summarize():
             method=method,
             length=length,
             client_ip=get_request_ip(),
+            idempotency_key=idempotency_key,
         )
     )
     return jsonify({"success": True, "task_id": task.id, "message": "Summarisation started."})

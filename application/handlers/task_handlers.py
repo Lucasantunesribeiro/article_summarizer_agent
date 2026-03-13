@@ -49,12 +49,22 @@ class SubmitSummarizationHandler:
         self._outbox_repository = outbox_repository
 
     def handle(self, command: SubmitSummarizationCommand) -> SummarizationTask:
+        import hashlib
+
+        idempotency_key = None
+        if command.idempotency_key:
+            idempotency_key = hashlib.sha256(command.idempotency_key.encode()).hexdigest()[:64]
+            existing = self._task_repository.get_by_idempotency_key(idempotency_key)
+            if existing and existing.status.value != "failed":
+                return existing
+
         task = SummarizationTask(
             id=str(uuid4()),
             url=command.url,
             method=command.method,
             length=command.length,
             message="Queued...",
+            idempotency_key=idempotency_key,
         )
         self._task_repository.add(task)
         if self._outbox_repository is not None:

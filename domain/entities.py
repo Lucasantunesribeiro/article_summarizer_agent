@@ -39,6 +39,7 @@ class SummarizationTask:
     files_created: dict[str, Any] | None = None
     method_used: str | None = None
     execution_time: float | None = None
+    idempotency_key: str | None = None
 
     def mark_processing(self) -> None:
         self.status = TaskStatus.PROCESSING
