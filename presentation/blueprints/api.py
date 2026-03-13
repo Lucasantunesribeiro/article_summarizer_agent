@@ -231,8 +231,15 @@ def api_test_settings():
     )
 
 
+_METRICS_TOKEN = os.getenv("METRICS_TOKEN")
+
+
 @api_bp.get("/metrics")
 def metrics():
+    if _METRICS_TOKEN:
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer ") or auth[7:] != _METRICS_TOKEN:
+            return jsonify({"error": "unauthorized"}), 401
     prometheus = current_app.extensions.get("prometheus")  # type: ignore[name-defined]
     if not prometheus:
         return Response("prometheus_client not installed", status=501, mimetype="text/plain")
