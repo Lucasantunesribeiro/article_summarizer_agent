@@ -83,6 +83,7 @@ def create_app() -> Flask:
                     "Content-Type",
                     "Authorization",
                     "X-CSRF-TOKEN",
+                    "X-Idempotency-Key",
                 ],
             }
         },
