@@ -35,6 +35,9 @@ class Task(Base):
     files_created: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     method_used: Mapped[str | None] = mapped_column(String(30), nullable=True)
     execution_time: Mapped[float | None] = mapped_column(Float, nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, unique=True, index=True
+    )
     audit_logs: Mapped[list[AuditLog]] = relationship(back_populates="task")
 
     def to_dict(self) -> dict:
@@ -54,6 +57,7 @@ class Task(Base):
             "files_created": self.files_created,
             "method_used": self.method_used,
             "execution_time": self.execution_time,
+            "idempotency_key": self.idempotency_key,
         }
 
 

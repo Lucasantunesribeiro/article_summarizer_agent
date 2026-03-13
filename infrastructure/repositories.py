@@ -48,6 +48,7 @@ def _to_task_entity(model: Task) -> SummarizationTask:
         files_created=model.files_created,
         method_used=model.method_used,
         execution_time=model.execution_time,
+        idempotency_key=getattr(model, "idempotency_key", None),
     )
 
 
@@ -84,6 +85,7 @@ class SqlAlchemyTaskRepository(TaskRepository):
                     files_created=task.files_created,
                     method_used=task.method_used,
                     execution_time=task.execution_time,
+                    idempotency_key=task.idempotency_key,
                 )
             )
 
@@ -124,6 +126,11 @@ class SqlAlchemyTaskRepository(TaskRepository):
                 .all()
             )
             return [_to_task_entity(row) for row in rows], total
+
+    def get_by_idempotency_key(self, key: str) -> SummarizationTask | None:
+        with session_scope() as session:
+            row = session.query(Task).filter(Task.idempotency_key == key).first()
+            return _to_task_entity(row) if row else None
 
     def get_statistics(self) -> dict[str, int]:
         with session_scope() as session:

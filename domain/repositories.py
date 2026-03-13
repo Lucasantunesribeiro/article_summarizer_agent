@@ -26,6 +26,9 @@ class TaskRepository(ABC):
     @abstractmethod
     def get_statistics(self) -> dict[str, int]: ...
 
+    @abstractmethod
+    def get_by_idempotency_key(self, key: str) -> SummarizationTask | None: ...
+
 
 class UserRepository(ABC):
     @abstractmethod
