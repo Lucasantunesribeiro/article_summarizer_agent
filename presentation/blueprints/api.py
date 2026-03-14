@@ -19,6 +19,7 @@ from application.queries import (
     GetTaskDownloadQuery,
     GetTaskStatisticsQuery,
     GetTaskStatusQuery,
+    ListTaskHistoryQuery,
 )
 from config import config
 from presentation.blueprints.helpers import (
@@ -78,6 +79,8 @@ def api_summarize():
             {"success": False, "error": 'length must be "short", "medium", or "long".'}
         ), 400
 
+    idempotency_key = request.headers.get("X-Idempotency-Key")
+
     container = get_container()
     task = container.submit_task_handler.handle(
         SubmitSummarizationCommand(
@@ -85,6 +88,7 @@ def api_summarize():
             method=method,
             length=length,
             client_ip=get_request_ip(),
+            idempotency_key=idempotency_key,
         )
     )
     return jsonify({"success": True, "task_id": task.id, "message": "Summarisation started."})
@@ -129,6 +133,17 @@ def api_status():
             "status": get_container().get_system_status_handler.handle(GetSystemStatusQuery()),
         }
     )
+
+
+@api_bp.get("/api/historico")
+@jwt_required()
+def api_historico():
+    page = request.args.get("page", 1, type=int)
+    per_page = min(request.args.get("per_page", 20, type=int), 100)
+    data = get_container().list_task_history_handler.handle(
+        ListTaskHistoryQuery(page=max(page, 1), per_page=per_page)
+    )
+    return jsonify({"success": True, **data})
 
 
 @api_bp.get("/api/estatisticas")
@@ -231,8 +246,15 @@ def api_test_settings():
     )
 
 
+_METRICS_TOKEN = os.getenv("METRICS_TOKEN")
+
+
 @api_bp.get("/metrics")
 def metrics():
+    if _METRICS_TOKEN:
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer ") or auth[7:] != _METRICS_TOKEN:
+            return jsonify({"error": "unauthorized"}), 401
     prometheus = current_app.extensions.get("prometheus")  # type: ignore[name-defined]
     if not prometheus:
         return Response("prometheus_client not installed", status=501, mimetype="text/plain")

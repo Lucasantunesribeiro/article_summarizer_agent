@@ -83,6 +83,7 @@ def create_app() -> Flask:
                     "Content-Type",
                     "Authorization",
                     "X-CSRF-TOKEN",
+                    "X-Idempotency-Key",
                 ],
             }
         },
@@ -114,46 +115,47 @@ def create_app() -> Flask:
     def _set_nonce():
         g.csp_nonce = secrets.token_urlsafe(16)
 
+    @app.before_request
+    def _set_request_id():
+        from uuid import uuid4
+
+        g.request_id = request.headers.get("X-Request-ID") or str(uuid4())
+
     @app.after_request
     def _add_security_headers(response):
         nonce = getattr(g, "csp_nonce", "")
+        response.headers["X-Request-ID"] = getattr(g, "request_id", "")
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            f"script-src 'self' 'nonce-{nonce}' cdn.jsdelivr.net cdnjs.cloudflare.com; "
-            "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com fonts.googleapis.com; "
-            "font-src 'self' fonts.gstatic.com cdn.jsdelivr.net cdnjs.cloudflare.com; "
+            "script-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "font-src 'self'; "
             "img-src 'self' data:; "
             "connect-src 'self';"
         )
+        try:
+            from modules.metrics import HTTP_REQUESTS
+
+            HTTP_REQUESTS.labels(
+                method=request.method,
+                endpoint=request.endpoint or "unknown",
+                status=str(response.status_code),
+            ).inc()
+        except Exception:
+            pass
         return response
 
     try:
-        from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, generate_latest
+        from prometheus_client import generate_latest
 
-        registry = CollectorRegistry(auto_describe=True)
+        from modules.metrics import REGISTRY
+
         app.extensions["prometheus"] = {
             "generate_latest": generate_latest,
-            "registry": registry,
-            "request_counter": Counter(
-                "summarization_requests_total",
-                "Total summarisation requests",
-                ["route", "status"],
-                registry=registry,
-            ),
-            "active_tasks": Gauge(
-                "active_tasks_gauge",
-                "Currently active summarisation tasks",
-                registry=registry,
-            ),
-            "duration_histogram": Histogram(
-                "summarization_duration_seconds",
-                "Summarisation task duration",
-                buckets=[1, 5, 10, 30, 60, 120, 300],
-                registry=registry,
-            ),
+            "registry": REGISTRY,
         }
     except ImportError:
         app.extensions["prometheus"] = None
@@ -164,17 +166,17 @@ def create_app() -> Flask:
 
     @app.errorhandler(404)
     def handle_404(error):
-        if request.path.startswith("/api/"):
+        if request.path.startswith("/api/") or request.path.startswith("/auth/"):
             return jsonify({"success": False, "error": "Not found."}), 404
-        return (
-            render_template(
-                "error.html",
-                code=404,
-                message="Page not found",
-                now="",
-            ),
-            404,
-        )
+        # For all other paths, serve the React SPA (React Router handles 404 display)
+        from pathlib import Path
+
+        from flask import send_file
+
+        index = Path(app.static_folder) / "dist" / "index.html"
+        if index.exists():
+            return send_file(str(index)), 200
+        return jsonify({"success": False, "error": "Not found."}), 404
 
     @app.errorhandler(500)
     def handle_500(error):
