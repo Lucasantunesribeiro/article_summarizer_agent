@@ -21,7 +21,12 @@ web_bp = Blueprint("web", __name__)
 
 @web_bp.get("/")
 def index():
-    return render_template("index.html", csp_nonce=g.csp_nonce)
+    settings_data = get_container().get_settings_handler.handle(GetSettingsQuery())
+    return render_template(
+        "index.html",
+        settings_data=settings_data,
+        csp_nonce=g.csp_nonce,
+    )
 
 
 @web_bp.get("/historico")
@@ -92,3 +97,15 @@ def logout():
     response = redirect(url_for("web.index"))
     unset_jwt_cookies(response)
     return response
+
+
+@web_bp.get("/<path:path>")
+def react_fallback(path: str):
+    from pathlib import Path
+
+    from flask import abort, current_app, send_file
+
+    index = Path(current_app.static_folder) / "dist" / "index.html"
+    if index.exists():
+        return send_file(str(index))
+    abort(404)

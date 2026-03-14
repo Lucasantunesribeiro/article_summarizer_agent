@@ -42,19 +42,50 @@ class SubmitSummarizationHandler:
         self,
         task_repository: TaskRepository,
         event_bus: EventBus,
+        outbox_repository=None,
     ) -> None:
         self._task_repository = task_repository
         self._event_bus = event_bus
+        self._outbox_repository = outbox_repository
 
     def handle(self, command: SubmitSummarizationCommand) -> SummarizationTask:
+        import hashlib
+
+        idempotency_key = None
+        if command.idempotency_key:
+            idempotency_key = hashlib.sha256(command.idempotency_key.encode()).hexdigest()[:64]
+            existing = self._task_repository.get_by_idempotency_key(idempotency_key)
+            if existing and existing.status.value != "failed":
+                return existing
+
         task = SummarizationTask(
             id=str(uuid4()),
             url=command.url,
             method=command.method,
             length=command.length,
             message="Queued...",
+            idempotency_key=idempotency_key,
         )
         self._task_repository.add(task)
+        if self._outbox_repository is not None:
+            try:
+                from domain.entities import OutboxEntry
+
+                outbox_entry = OutboxEntry(
+                    id=str(uuid4()),
+                    event_type="task.submitted",
+                    aggregate_id=task.id,
+                    payload={
+                        "task_id": task.id,
+                        "url": task.url,
+                        "method": task.method,
+                        "length": task.length,
+                        "client_ip": command.client_ip,
+                    },
+                )
+                self._outbox_repository.add(outbox_entry)
+            except Exception:
+                pass
         self._event_bus.publish(
             TaskSubmitted(
                 aggregate_id=task.id,
@@ -82,8 +113,20 @@ class ProcessTaskHandler:
         self._event_bus = event_bus
 
     def handle(self, task_id: str, url: str, method: str, length: str) -> dict:
+        try:
+            from modules.metrics import ACTIVE_TASKS
+
+            ACTIVE_TASKS.inc()
+        except Exception:
+            pass
         task = self._task_repository.get(task_id)
         if not task:
+            try:
+                from modules.metrics import ACTIVE_TASKS
+
+                ACTIVE_TASKS.dec()
+            except Exception:
+                pass
             raise ValueError(f"Task {task_id} not found.")
 
         task.mark_processing()
@@ -99,6 +142,13 @@ class ProcessTaskHandler:
         except Exception as exc:
             failure = FailTaskCommand(task_id=task_id, error=str(exc))
             return FailTaskHandler(self._task_repository, self._event_bus).handle(failure)
+        finally:
+            try:
+                from modules.metrics import ACTIVE_TASKS
+
+                ACTIVE_TASKS.dec()
+            except Exception:
+                pass
 
 
 class CompleteTaskHandler:
@@ -112,6 +162,16 @@ class CompleteTaskHandler:
             raise ValueError(f"Task {command.task_id} not found.")
         task.mark_completed(command.result)
         self._task_repository.update(task)
+        try:
+            from modules.metrics import SUMMARIZATION_DURATION, SUMMARIZATION_REQUESTS
+
+            SUMMARIZATION_REQUESTS.labels(
+                status="success", method=task.method or "extractive"
+            ).inc()
+            if task.execution_time:
+                SUMMARIZATION_DURATION.observe(task.execution_time)
+        except Exception:
+            pass
         self._event_bus.publish(
             TaskCompleted(
                 aggregate_id=task.id,
@@ -137,6 +197,14 @@ class FailTaskHandler:
             raise ValueError(f"Task {command.task_id} not found.")
         task.mark_failed(command.error)
         self._task_repository.update(task)
+        try:
+            from modules.metrics import SUMMARIZATION_REQUESTS
+
+            SUMMARIZATION_REQUESTS.labels(
+                status="failure", method=task.method or "extractive"
+            ).inc()
+        except Exception:
+            pass
         self._event_bus.publish(
             TaskFailed(
                 aggregate_id=task.id,

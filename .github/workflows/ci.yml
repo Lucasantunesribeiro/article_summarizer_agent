@@ -22,6 +22,29 @@ jobs:
   test:
     name: Tests (pytest)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: summarizer_test
+          POSTGRES_USER: summarizer
+          POSTGRES_PASSWORD: summarizer
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      rabbitmq:
+        image: rabbitmq:3.13
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5672:5672
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -38,12 +61,21 @@ jobs:
               nltk.download(pkg, quiet=True)
           "
       - name: Run tests
-        run: pytest tests/ -v --tb=short --cov --cov-report=term-missing
+        run: pytest tests/ -v --tb=short --cov --cov-report=term-missing --cov-report=xml
         env:
           GEMINI_API_KEY: "test-key"
           FLASK_DEBUG: "true"
           SECRET_KEY: "test-secret-key"
           ADMIN_PASSWORD: "Admin123!"
+          DATABASE_URL: "postgresql://summarizer:summarizer@localhost:5432/summarizer_test"
+          CELERY_BROKER_URL: "amqp://guest:guest@localhost:5672//"
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
 
   docker-build:
     name: Docker build

@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
-from .entities import AuditLogEntry, SummarizationTask, User
+from .entities import AuditLogEntry, OutboxEntry, SummarizationTask, User
 
 
 class TaskRepository(ABC):
@@ -25,6 +25,9 @@ class TaskRepository(ABC):
 
     @abstractmethod
     def get_statistics(self) -> dict[str, int]: ...
+
+    @abstractmethod
+    def get_by_idempotency_key(self, key: str) -> SummarizationTask | None: ...
 
 
 class UserRepository(ABC):
@@ -52,3 +55,17 @@ class SettingsRepository(ABC):
 
     @abstractmethod
     def set_many(self, values: dict[str, Any]) -> dict[str, Any]: ...
+
+
+class OutboxRepository(ABC):
+    @abstractmethod
+    def add(self, entry: OutboxEntry) -> None: ...
+
+    @abstractmethod
+    def get_pending(self, limit: int = 100) -> list[OutboxEntry]: ...
+
+    @abstractmethod
+    def mark_published(self, entry_id: str) -> None: ...
+
+    @abstractmethod
+    def mark_failed(self, entry_id: str) -> None: ...

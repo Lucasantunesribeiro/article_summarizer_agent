@@ -219,3 +219,39 @@ All CRITICAL and HIGH findings have been resolved. MEDIUM findings M1–M4 have 
 - **Nonce-based CSP**: Removed `unsafe-inline` from Content-Security-Policy.
 - **Enhanced /health**: Individual checks for agent, Redis, and database.
 - **CORS wildcard warning**: Startup warning when CORS_ORIGINS=* in production mode.
+
+---
+
+## v3.1 Audit Findings — 2026-03-13
+
+**Auditor:** Claude Code
+**Scope:** Security hardening, observability instrumentation, messaging, outbox pattern, idempotency, domain enrichment, frontend scaffolding
+
+### Issues Resolved in v3.1
+
+| Finding | Status | Resolution |
+|---|---|---|
+| Path traversal guard used string prefix comparison | FIXED | `is_relative_to()` replaces `startswith()` |
+| `/metrics` endpoint was unauthenticated | FIXED | Bearer token check via `METRICS_TOKEN` env var |
+| Prometheus metrics declared but not incremented | FIXED | `HTTP_REQUESTS`, `SUMMARIZATION_REQUESTS`, `ACTIVE_TASKS`, `SUMMARIZATION_DURATION` incremented in request lifecycle and task handlers |
+| No correlation ID for log tracing | FIXED | `X-Request-ID` generated per request, stored in `g.request_id`, injected in response header and log records |
+| Event bus purely in-memory with no durability | FIXED | Outbox pattern: `OutboxEntry` persisted atomically on task submit, `outbox_relay` Celery beat task publishes every 30 s |
+| Celery broker was Redis (not typical enterprise messaging) | FIXED | RabbitMQ AMQP 0-9-1 broker (`amqp://`); Redis remains as result backend only |
+| No Dead Letter Queue model | FIXED | `DeadLetterEntry` ORM model + migration 0003 |
+| `POST /api/sumarizar` had no idempotency protection | FIXED | `X-Idempotency-Key` header; SHA-256 hash stored as `tasks.idempotency_key`; returns existing task if key matches non-failed task |
+| Domain entities had no state machine | FIXED | `TaskTransitionError`, `_TASK_VALID_TRANSITIONS`, `is_terminal`, `is_pending`, `can_retry`, `TaskId` value object, `User.activate()` / `deactivate()` |
+| No Grafana dashboard | FIXED | Provisioned dashboard with 5 panels (request rate, summarization rate, active tasks, p50/p95 duration, error rate) |
+| Worker not deployed on Render | FIXED | `render.yaml` now declares `article_summarizer_worker` service |
+| Migrations ran at startup (unsafe for multi-worker) | FIXED | Migrations moved to `render-build.sh` (build step); startup is clean Gunicorn only |
+| CORS did not allow `X-Idempotency-Key` header | FIXED | Added to `allow_headers` in `presentation/app_factory.py` |
+
+### New Capabilities Added in v3.1
+
+- **RabbitMQ integration**: AMQP broker with durable queues and `task_reject_on_worker_lost=True`.
+- **Outbox pattern**: `SqlAlchemyOutboxRepository` + `tasks/outbox_relay.py` Celery beat task.
+- **Idempotency**: SHA-256 keyed deduplication on task submission.
+- **DDD enrichment**: State machine with guard transitions, `TaskId` value object, domain properties.
+- **Prometheus + Grafana stack**: Full observability stack provisioned in `docker-compose.yml`.
+- **Correlation ID middleware**: `X-Request-ID` propagated through request lifecycle and log records.
+- **React/TypeScript SPA**: Frontend scaffold with React Query, React Router, Tailwind CSS, and API client layer.
+- **CI improvements**: PostgreSQL and RabbitMQ services in GitHub Actions test pipeline.
