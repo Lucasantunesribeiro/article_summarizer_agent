@@ -249,6 +249,7 @@ class TestWebRoutes:
         response = client.get("/")
         assert response.status_code == 200
 
-    def test_404_on_unknown_route(self, client):
+    def test_unknown_ui_route_serves_spa_or_503(self, client):
+        # React SPA catch-all: returns 200 (SPA served) or 503 (not built yet)
         response = client.get("/this/does/not/exist")
-        assert response.status_code == 404
+        assert response.status_code in (200, 503)

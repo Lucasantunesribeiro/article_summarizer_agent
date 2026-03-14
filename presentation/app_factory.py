@@ -130,9 +130,9 @@ def create_app() -> Flask:
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            f"script-src 'self' 'nonce-{nonce}' cdn.jsdelivr.net cdnjs.cloudflare.com; "
-            "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com fonts.googleapis.com; "
-            "font-src 'self' fonts.gstatic.com cdn.jsdelivr.net cdnjs.cloudflare.com; "
+            "script-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "font-src 'self'; "
             "img-src 'self' data:; "
             "connect-src 'self';"
         )
@@ -166,17 +166,17 @@ def create_app() -> Flask:
 
     @app.errorhandler(404)
     def handle_404(error):
-        if request.path.startswith("/api/"):
+        if request.path.startswith("/api/") or request.path.startswith("/auth/"):
             return jsonify({"success": False, "error": "Not found."}), 404
-        return (
-            render_template(
-                "error.html",
-                code=404,
-                message="Page not found",
-                now="",
-            ),
-            404,
-        )
+        # For all other paths, serve the React SPA (React Router handles 404 display)
+        from pathlib import Path
+
+        from flask import send_file
+
+        index = Path(app.static_folder) / "dist" / "index.html"
+        if index.exists():
+            return send_file(str(index)), 200
+        return jsonify({"success": False, "error": "Not found."}), 404
 
     @app.errorhandler(500)
     def handle_500(error):
