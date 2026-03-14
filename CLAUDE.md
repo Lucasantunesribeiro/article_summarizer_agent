@@ -155,46 +155,54 @@ Modules excluded from coverage (require real network/browser/API): `web_scraper.
 
 ## MCP Servers
 
-| Server | Use case | Example tasks |
+| Server | Use case | When to invoke |
 |---|---|---|
-| **context7** | Fetch up-to-date library docs | Flask, SQLAlchemy, Celery, RabbitMQ documentation |
-| **Ref** | Alternative library/API docs lookup | Check Flask-JWT-Extended or Alembic API reference |
-| **sequential-thinking** | Complex multi-step reasoning/planning | Planning refactor strategy or migration approach |
-| **exa** | Web search for current information | Search for RabbitMQ best practices, Python patterns |
-| **firecrawl** | Scrape/crawl web pages for research | Fetch blog posts, documentation pages for context |
-| **playwright** | Browser automation for E2E tests | Run end-to-end tests against the running app |
-| **chrome-devtools** | Browser DevTools automation | Inspect network requests, debug frontend issues |
-| **notebooklm** | Research compilation and summarization | Compile research notes, summarize documentation |
-| **magic-mcp** | Generate UI components from natural language | Create React components from descriptions |
-| **shadcn-ui** | Fetch shadcn/ui component source and demos | Get Button, Card, Table component implementations |
-| **magicuidesign** | Browse and fetch UI component registry | Search animated UI components for the frontend |
-| **stitch** | Design screen prototypes | Prototype new UI screens before implementing |
-| **supabase** | Supabase DB operations | Future: migrate to Supabase for managed Postgres |
-| **netlify** | Netlify deploy/project management | Deploy frontend builds, manage edge functions |
-| **awslabs-docs** | AWS official documentation search/read | Search AWS docs for Lambda, SQS, DynamoDB patterns |
-| **awslabs-cfn** | Create/update AWS CloudFormation resources | Provision S3 buckets, SQS queues via CloudFormation |
-| **awslabs-iam** | AWS IAM user/role/policy management | Create IAM roles for Lambda, manage access policies |
-| **awslabs-dynamodb** | DynamoDB schema design and modeling | Design task storage schema for DynamoDB migration |
-| **awslabs-lambda** | Invoke AWS Lambda functions | Trigger Lambda for async summarization processing |
+| **context7** | Fetch up-to-date library docs | **Invoke when:** about to write code using a specific library API (Flask, SQLAlchemy, Celery, Alembic, kombu) and the version matters, OR when hitting an AttributeError/ImportError that suggests the API changed. **Do NOT use** for general Python questions. |
+| **Ref** | Alternative library/API docs lookup | **Invoke when:** context7 doesn't have the library, OR when checking Flask-JWT-Extended, Pydantic, or Alembic API reference specifically. |
+| **sequential-thinking** | Complex multi-step reasoning | **Invoke when:** planning a refactor that touches 3+ layers, designing a migration strategy, or decomposing an ambiguous large task before writing any code. |
+| **exa** | Current web search | **Invoke when:** looking for RabbitMQ best practices, Python patterns not in docs, security advisories, or confirming a library's latest version. |
+| **firecrawl** | Scrape/crawl web pages | **Invoke when:** fetching a blog post, GitHub issue, or documentation page that isn't in standard docs (e.g., a Celery recipe from a community article). |
+| **playwright** | Browser automation / E2E | **Invoke when:** running end-to-end tests against the running app at localhost:5000, or verifying that a UI change works in a real browser. |
+| **chrome-devtools** | Browser DevTools automation | **Invoke when:** debugging frontend network requests, inspecting CSP violations, checking React hydration errors, or auditing Lighthouse performance. |
+| **magic-mcp** | Generate UI components | **Invoke when:** creating a new React component from a natural-language description (e.g., "a card that shows task status with a progress bar"). |
+| **shadcn-ui** | shadcn/ui component source | **Invoke when:** implementing a new shadcn/ui component (Button, Card, Table, Dialog) — fetch the source instead of writing from scratch. |
+| **magicuidesign** | Animated UI component registry | **Invoke when:** looking for animated or interactive UI components beyond shadcn/ui defaults (e.g., animated counters, shimmer loaders). |
+| **stitch** | Design screen prototypes | **Invoke when:** prototyping a new page before writing React code — useful for quickly validating layout ideas. |
+| **supabase** | Supabase DB operations | **Invoke when:** migrating to Supabase-managed Postgres, or using Supabase Auth/Storage in future features. |
+| **netlify** | Netlify deploy/project management | **Invoke when:** deploying the frontend build to Netlify, managing edge functions, or checking deploy status. |
+| **awslabs-docs** | AWS official documentation | **Invoke when:** researching AWS service patterns (Lambda, SQS, ECS, RDS, ElastiCache) — use before writing any AWS-specific code or IaC. |
+| **awslabs-cfn** | AWS CloudFormation CRUD | **Invoke when:** provisioning or updating AWS resources (S3, SQS, RDS, ECS) via CloudFormation — use after awslabs-docs to understand the resource schema. |
+| **awslabs-iam** | AWS IAM management | **Invoke when:** creating IAM roles for Lambda/ECS, managing policies for CI/CD pipelines, or auditing permissions. |
+| **awslabs-dynamodb** | DynamoDB schema design | **Invoke when:** designing or validating a DynamoDB data model — use before writing any DynamoDB access code. |
+| **awslabs-lambda** | Invoke AWS Lambda | **Invoke when:** triggering a Lambda function for async summarization or testing a deployed Lambda directly. |
 
 ## Specialized Agents
 
 | Agent | Domain | When to invoke |
 |---|---|---|
-| **Explore** | Codebase search | Finding files, patterns, understanding structure |
-| **Plan** | Architecture design | Designing implementation approaches before coding |
-| **backend-architect** | Flask/Python backend | API endpoints, services, Clean Architecture patterns |
-| **postgres-architect** | DB schema | Migrations, queries, indexes, schema changes |
-| **lucas-frontend-engineer** | React/TypeScript | Components, pages, state management, routing |
-| **qa-engineer** | Tests | Test strategy, coverage gaps, test plans before PRs |
-| **devops-deploy-architect** | Docker/CI/CD | Dockerfile, GitHub Actions, Render/cloud deployment |
-| **sre-observability** | Metrics/logging | Prometheus, Grafana dashboards, correlation IDs |
-| **security-hardening-validator** | Security | After adding auth endpoints, file uploads, or admin routes |
-| **dx-docs-writer** | Documentation | README, SECURITY.md, ARCHITECTURE.md updates |
-| **code-quality-reviewer** | Code review | After significant code changes before merging |
-| **architecture-advisor** | Architecture decisions | Refactoring, introducing new patterns, tech choices |
-| **tech-lead-orchestrator** | Technical leadership | End-to-end feature production readiness review |
-| **llm-integration-architect** | LLM/AI integration | Gemini, prompt engineering, AI production hardening |
-| **product-growth-advisor** | Growth/conversion | Funnel analysis, feature adoption optimization |
-| **claude-code-guide** | Claude API/SDK | Using Anthropic SDK, Claude API integration |
-| **general-purpose** | Everything else | Research, multi-step tasks, exploration |
+| **Explore** | Codebase search | **Invoke when:** searching for a file/pattern across the repo and a simple Glob/Grep won't be sufficient (e.g., "find all places that call circuit_breaker" across 5+ directories). Use for open-ended codebase exploration. |
+| **Plan** | Architecture design | **Invoke when:** about to implement a feature that touches 3+ files/layers — always plan before coding to validate approach. Skip only for trivial single-file changes. |
+| **backend-architect** | Flask/Python backend | **Invoke when:** (1) adding or modifying API endpoints in `presentation/blueprints/`, (2) changing handlers in `application/`, (3) modifying infrastructure adapters, (4) designing new domain entities or repository contracts. |
+| **postgres-architect** | DB schema | **Invoke when:** (1) creating or modifying Alembic migrations, (2) adding/removing columns or indexes, (3) optimizing a slow query, (4) designing a new table relationship. |
+| **lucas-frontend-engineer** | React/TypeScript | **Invoke when:** (1) adding or modifying files under `frontend/src/`, (2) fixing React component logic or hooks, (3) creating new pages or shared components, (4) updating Vite config or Tailwind setup. Do NOT invoke for backend API changes. |
+| **qa-engineer** | Tests | **Invoke when:** (1) a new feature is complete and needs test coverage, (2) before opening a PR to verify no gaps, (3) designing test strategy for a complex flow (e.g., outbox + Celery + RabbitMQ). |
+| **devops-deploy-architect** | Docker/CI/CD | **Invoke when:** (1) modifying `Dockerfile`, `docker-compose.yml`, `render.yaml`, or GitHub Actions, (2) adding a new service to the stack, (3) changing build or deployment scripts. |
+| **sre-observability** | Metrics/logging/tracing | **Invoke when:** (1) adding new Prometheus metrics, (2) wiring OpenTelemetry instrumentation, (3) designing Grafana dashboards or SLOs, (4) improving structured logging or request correlation. |
+| **security-hardening-validator** | Security | **Invoke when:** (1) adding or modifying any auth/JWT endpoint, (2) adding file upload or admin routes, (3) changing CORS or CSP configuration, (4) any change that touches `_check_ssrf()` or rate limiting. |
+| **dx-docs-writer** | Documentation | **Invoke when:** (1) a new feature is complete, (2) adding new env vars or deployment steps, (3) README/ARCHITECTURE.md is out of sync with the code. |
+| **code-quality-reviewer** | Code review | **Invoke when:** a significant PR is ready — run before merging to catch over-engineering, dead code, or missing error handling. |
+| **architecture-advisor** | Architecture decisions | **Invoke when:** choosing between two non-trivial approaches (e.g., sync vs async, monolith vs service extraction, SQL vs NoSQL), or when introducing a new pattern into the codebase. |
+| **tech-lead-orchestrator** | Production readiness | **Invoke when:** a feature is "done" but needs a final review across security + observability + error handling + tests before going to production. |
+| **llm-integration-architect** | LLM/AI integration | **Invoke when:** modifying `modules/gemini_summarizer.py`, `modules/summarizer.py`, prompt templates, or adding any new LLM API call. |
+| **product-growth-advisor** | Growth/conversion | **Invoke when:** analyzing funnel drop-off, improving feature adoption, or planning UX changes aimed at increasing user engagement. |
+| **claude-code-guide** | Claude API/SDK | **Invoke when:** code imports `anthropic` or `@anthropic-ai/sdk`, or when using the Anthropic API, Claude Agent SDK, or tool use patterns. |
+| **general-purpose** | Everything else | **Invoke when:** the task doesn't clearly match any specialist above — research, multi-step file operations, or combining multiple concerns. |
+
+## Git Workflow
+
+**Never commit directly to main. All changes go through Pull Requests.**
+
+1. Create feature branch: `git checkout -b feat/short-description`
+2. Commit using conventional prefixes: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`
+3. Push and open PR: `gh pr create --base main`
+4. Merge only after CI passes.
