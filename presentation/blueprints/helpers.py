@@ -58,6 +58,6 @@ def get_claims() -> dict[str, Any]:
 def validate_download_path(path: str) -> pathlib.Path | None:
     allowed_dir = pathlib.Path(config.output.output_dir).resolve()
     resolved_path = pathlib.Path(path).resolve()
-    if not str(resolved_path).startswith(str(allowed_dir)):
+    if not resolved_path.is_relative_to(allowed_dir):
         return None
     return resolved_path

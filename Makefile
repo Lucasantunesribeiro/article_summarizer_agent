@@ -86,3 +86,15 @@ db-downgrade:  ## Rollback last migration
 
 load-test:     ## Run Locust load tests (requires locust installed)
 	$(VENV)/bin/locust -f tests/load/locustfile.py --host=http://localhost:5000
+
+frontend-setup:  ## Install frontend dependencies
+	cd frontend && npm install
+
+frontend-dev:  ## Run Vite dev server (port 3000)
+	cd frontend && npm run dev
+
+frontend-build:  ## Build frontend to static/dist/
+	cd frontend && npm run build
+
+frontend-lint:  ## ESLint frontend
+	cd frontend && npm run lint
