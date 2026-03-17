@@ -332,7 +332,7 @@ function ProcessingView({ url, progress, message }: ProcessingViewProps) {
         <Link to="/" className="hover:text-primary transition">
           Painel
         </Link>
-        <span className="material-symbols-outlined text-[14px]">chevron_right</span>
+        <span className="mx-1">/</span>
         <span className="text-slate-900 dark:text-white font-medium">Processando Resumo</span>
       </nav>
 
@@ -421,7 +421,7 @@ function ResultView({
         <Link to="/" className="hover:text-primary transition">
           Painel
         </Link>
-        <span className="material-symbols-outlined text-[14px]">chevron_right</span>
+        <span className="mx-1">/</span>
         <span className="text-slate-900 dark:text-white font-medium">Resultado do Resumo</span>
       </nav>
 
@@ -609,29 +609,61 @@ function ResultView({
 
 // ─── Error view ───────────────────────────────────────────────────────────────
 
+function friendlyError(raw: string): { title: string; detail: string; hint: string | null } {
+  const lower = raw.toLowerCase()
+  if (lower.includes('insufficient sentences') || lower.includes('not enough')) {
+    return {
+      title: 'Conteúdo insuficiente',
+      detail: 'O artigo não possui texto suficiente para gerar um resumo com o método extrativo.',
+      hint: 'Tente novamente com o método Generativo (Gemini) ou verifique se o artigo não exige login para leitura.',
+    }
+  }
+  if (lower.includes('ssrf') || lower.includes('blocked') || lower.includes('private')) {
+    return {
+      title: 'URL bloqueada',
+      detail: 'O endereço aponta para uma rede privada ou é bloqueado por política de segurança.',
+      hint: 'Use uma URL pública de um artigo acessível sem autenticação.',
+    }
+  }
+  if (lower.includes('timeout') || lower.includes('timed out')) {
+    return {
+      title: 'Tempo esgotado',
+      detail: 'O servidor demorou muito para responder.',
+      hint: 'Tente novamente em alguns segundos.',
+    }
+  }
+  return { title: 'Falha no processamento', detail: raw, hint: null }
+}
+
 function ErrorView({ error, url, onRetry }: { error: string; url: string; onRetry: () => void }) {
+  const { title, detail, hint } = friendlyError(error)
   return (
     <div className="max-w-[1200px] mx-auto px-6 py-12">
       <nav className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-8">
-        <Link to="/" className="hover:text-primary transition">
-          Painel
-        </Link>
-        <span className="material-symbols-outlined text-[14px]">chevron_right</span>
+        <Link to="/" className="hover:text-primary transition">Painel</Link>
+        <span className="mx-1">/</span>
         <span className="text-slate-900 dark:text-white font-medium">Erro no Resumo</span>
       </nav>
 
       <div className="max-w-lg mx-auto bg-white dark:bg-slate-800/50 rounded-xl border border-red-200 dark:border-red-800/40 p-8 text-center shadow-sm">
-        <div className="size-12 bg-red-50 dark:bg-red-900/20 rounded-xl flex items-center justify-center mx-auto mb-4">
-          <span className="material-symbols-outlined text-red-500 text-[24px]">error</span>
+        <div className="size-14 bg-red-50 dark:bg-red-900/20 rounded-xl flex items-center justify-center mx-auto mb-4">
+          {/* SVG fallback — doesn't depend on the icon font */}
+          <svg className="w-7 h-7 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          </svg>
         </div>
-        <h2 className="font-bold text-slate-900 dark:text-white mb-2">Falha no processamento</h2>
-        <p className="text-sm text-red-600 dark:text-red-400 mb-2">{error}</p>
-        <p className="text-xs text-slate-500 dark:text-slate-400 truncate mb-6">{url}</p>
+        <h2 className="font-bold text-slate-900 dark:text-white text-lg mb-2">{title}</h2>
+        <p className="text-sm text-red-600 dark:text-red-400 mb-3">{detail}</p>
+        {hint && (
+          <p className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 rounded-lg px-4 py-3 mb-4 text-left">
+            💡 {hint}
+          </p>
+        )}
+        <p className="text-xs text-slate-400 truncate mb-6 font-mono">{url}</p>
         <button
           onClick={onRetry}
-          className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:opacity-90 transition"
+          className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg text-sm font-bold hover:opacity-90 transition"
         >
-          <span className="material-symbols-outlined text-[16px]">refresh</span>
           Tentar novamente
         </button>
       </div>
