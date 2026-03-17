@@ -33,6 +33,7 @@ from infrastructure.auth import AdminBootstrapper, PasswordService
 from infrastructure.pipeline import ArticlePipelineRunner
 from infrastructure.repositories import (
     SqlAlchemyAuditLogRepository,
+    SqlAlchemyOutboxRepository,
     SqlAlchemySettingsRepository,
     SqlAlchemyTaskRepository,
     SqlAlchemyUserRepository,
@@ -64,6 +65,7 @@ class RuntimeContainer:
     user_repository: SqlAlchemyUserRepository
     audit_repository: SqlAlchemyAuditLogRepository
     settings_repository: SqlAlchemySettingsRepository
+    outbox_repository: SqlAlchemyOutboxRepository
     password_service: PasswordService
     rate_limiters: dict[str, Any]
     secrets_manager: Any
@@ -148,6 +150,7 @@ def build_runtime_container() -> RuntimeContainer:
     user_repository = SqlAlchemyUserRepository()
     audit_repository = SqlAlchemyAuditLogRepository()
     settings_repository = SqlAlchemySettingsRepository()
+    outbox_repository = SqlAlchemyOutboxRepository()
     password_service = PasswordService()
     rate_limiters = _build_rate_limiters()
     settings_applier = RuntimeSettingsApplier(pipeline_runner, rate_limiters)
@@ -159,7 +162,9 @@ def build_runtime_container() -> RuntimeContainer:
         settings_repository.set_many(_build_default_settings())
     settings_applier.apply(settings_repository.get_all())
 
-    submit_task_handler = SubmitSummarizationHandler(task_repository, event_bus)
+    submit_task_handler = SubmitSummarizationHandler(
+        task_repository, event_bus, outbox_repository=outbox_repository
+    )
     process_task_handler = ProcessTaskHandler(task_repository, pipeline_runner, event_bus)
     dispatcher = AsyncTaskDispatcher(process_task_handler)
 
@@ -222,6 +227,7 @@ def build_runtime_container() -> RuntimeContainer:
         user_repository=user_repository,
         audit_repository=audit_repository,
         settings_repository=settings_repository,
+        outbox_repository=outbox_repository,
         password_service=password_service,
         rate_limiters=rate_limiters,
         secrets_manager=secrets_manager,

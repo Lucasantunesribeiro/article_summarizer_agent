@@ -11,6 +11,7 @@ from sqlalchemy import func
 from database import session_scope
 from domain.entities import (
     AuditLogEntry,
+    OutboxEntry,
     SummarizationTask,
     TaskStatus,
     User,
@@ -18,11 +19,13 @@ from domain.entities import (
 )
 from domain.repositories import (
     AuditLogRepository,
+    OutboxRepository,
     SettingsRepository,
     TaskRepository,
     UserRepository,
 )
 from models import AuditLog, Setting, Task
+from models import OutboxEntry as OutboxEntryModel
 from models import User as UserModel
 
 SessionFactory = Callable[[], Any]
@@ -45,6 +48,7 @@ def _to_task_entity(model: Task) -> SummarizationTask:
         files_created=model.files_created,
         method_used=model.method_used,
         execution_time=model.execution_time,
+        idempotency_key=getattr(model, "idempotency_key", None),
     )
 
 
@@ -81,6 +85,7 @@ class SqlAlchemyTaskRepository(TaskRepository):
                     files_created=task.files_created,
                     method_used=task.method_used,
                     execution_time=task.execution_time,
+                    idempotency_key=task.idempotency_key,
                 )
             )
 
@@ -121,6 +126,11 @@ class SqlAlchemyTaskRepository(TaskRepository):
                 .all()
             )
             return [_to_task_entity(row) for row in rows], total
+
+    def get_by_idempotency_key(self, key: str) -> SummarizationTask | None:
+        with session_scope() as session:
+            row = session.query(Task).filter(Task.idempotency_key == key).first()
+            return _to_task_entity(row) if row else None
 
     def get_statistics(self) -> dict[str, int]:
         with session_scope() as session:
@@ -214,3 +224,66 @@ class SqlAlchemySettingsRepository(SettingsRepository):
                     row.value = value
                     row.updated_at = datetime.utcnow()
         return values
+
+
+def _to_outbox_entity(model: OutboxEntryModel) -> OutboxEntry:
+    return OutboxEntry(
+        id=model.id,
+        event_type=model.event_type,
+        aggregate_id=model.aggregate_id,
+        payload=model.payload,
+        status=model.status,
+        created_at=model.created_at,
+        published_at=model.published_at,
+        retry_count=model.retry_count or 0,
+    )
+
+
+class SqlAlchemyOutboxRepository(OutboxRepository):
+    def add(self, entry: OutboxEntry) -> None:
+        with session_scope() as session:
+            session.add(
+                OutboxEntryModel(
+                    id=entry.id,
+                    event_type=entry.event_type,
+                    aggregate_id=entry.aggregate_id,
+                    payload=entry.payload,
+                    status=entry.status,
+                    created_at=entry.created_at,
+                    published_at=entry.published_at,
+                    retry_count=entry.retry_count,
+                )
+            )
+
+    def get_pending(self, limit: int = 100) -> list[OutboxEntry]:
+        with session_scope() as session:
+            try:
+                rows = (
+                    session.query(OutboxEntryModel)
+                    .filter(OutboxEntryModel.status == "pending")
+                    .with_for_update(skip_locked=True)
+                    .limit(limit)
+                    .all()
+                )
+            except Exception:
+                rows = (
+                    session.query(OutboxEntryModel)
+                    .filter(OutboxEntryModel.status == "pending")
+                    .limit(limit)
+                    .all()
+                )
+            return [_to_outbox_entity(row) for row in rows]
+
+    def mark_published(self, entry_id: str) -> None:
+        with session_scope() as session:
+            row = session.query(OutboxEntryModel).filter(OutboxEntryModel.id == entry_id).first()
+            if row:
+                row.status = "published"
+                row.published_at = datetime.utcnow()
+
+    def mark_failed(self, entry_id: str) -> None:
+        with session_scope() as session:
+            row = session.query(OutboxEntryModel).filter(OutboxEntryModel.id == entry_id).first()
+            if row:
+                row.status = "failed"
+                row.retry_count = (row.retry_count or 0) + 1

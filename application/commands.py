@@ -12,6 +12,7 @@ class SubmitSummarizationCommand:
     method: str
     length: str
     client_ip: str
+    idempotency_key: str | None = None
 
 
 @dataclass(slots=True)
