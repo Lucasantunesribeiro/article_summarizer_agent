@@ -19,6 +19,16 @@ celery = Celery(
     include=["tasks.summarization_task", "tasks.outbox_relay"],
 )
 
+import os as _os
+
+if _os.getenv("OTEL_ENABLED", "false").lower() == "true":
+    try:
+        from opentelemetry.instrumentation.celery import CeleryInstrumentor
+
+        CeleryInstrumentor().instrument()
+    except ImportError:
+        pass
+
 celery.conf.update(
     task_serializer="json",
     result_serializer="json",
