@@ -396,7 +396,7 @@ function ResultView({
   taskId,
   url,
   summary,
-  filesCreated,
+  filesCreated: _filesCreated,
   statistics,
   onNewQuery,
 }: ResultViewProps) {
