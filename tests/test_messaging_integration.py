@@ -62,9 +62,7 @@ class TestAsyncTaskDispatcherFallback:
         call_args = {}
 
         def fake_handle(task_id, url, method, length):
-            call_args.update(
-                {"task_id": task_id, "url": url, "method": method, "length": length}
-            )
+            call_args.update({"task_id": task_id, "url": url, "method": method, "length": length})
             done_event.set()
 
         mock_handler = MagicMock()
