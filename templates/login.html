@@ -3,43 +3,52 @@
 {% block title %}Login - Article Summarizer Agent{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center mt-5">
-    <div class="col-md-4">
-        <div class="card shadow border-0">
-            <div class="card-header bg-primary text-white text-center">
-                <h4 class="mb-0"><i class="bi bi-lock"></i> Login</h4>
-            </div>
-            <div class="card-body p-4">
-                {% if error %}
-                <div class="alert alert-danger" role="alert">
-                    <i class="bi bi-exclamation-triangle"></i> {{ error }}
-                </div>
-                {% endif %}
-
-                <form method="POST" action="{{ url_for('web.login') }}">
-                    <div class="mb-3">
-                        <label for="username" class="form-label">Usuário</label>
-                        <input type="text" class="form-control" id="username" name="username"
-                               placeholder="admin" autocomplete="username" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Senha</label>
-                        <input type="password" class="form-control" id="password" name="password"
-                               autocomplete="current-password" required>
-                    </div>
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-box-arrow-in-right"></i> Entrar
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-        <div class="text-center mt-3">
-            <a href="{{ url_for('web.index') }}" class="text-muted">
-                <i class="bi bi-arrow-left"></i> Voltar ao início
-            </a>
+<section class="login-shell">
+    <div class="surface-card login-shell__intro">
+        <p class="section-kicker">Protected access</p>
+        <h1 class="page-title">Authenticate to access task history and operational controls.</h1>
+        <p class="page-copy">
+            Administrative access unlocks the protected history, persisted runtime settings,
+            cache management and JWT secret rotation panels.
+        </p>
+        <div class="hero-tags">
+            <span class="hero-tag">JWT cookies</span>
+            <span class="hero-tag">CSRF header</span>
+            <span class="hero-tag">RBAC-ready</span>
+            <span class="hero-tag">Audit trail</span>
         </div>
     </div>
-</div>
+
+    <div class="surface-card login-shell__form">
+        <div class="panel-heading">
+            <div>
+                <p class="section-kicker">Authentication</p>
+                <h2>Sign in</h2>
+            </div>
+        </div>
+
+        {% if error %}
+        <div class="inline-banner inline-banner--danger">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('web.login', next=request.args.get('next')) }}" class="app-form">
+            <div class="app-field">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" class="form-control app-input" id="username" name="username"
+                    autocomplete="username" placeholder="admin" required>
+            </div>
+            <div class="app-field">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" class="form-control app-input" id="password" name="password"
+                    autocomplete="current-password" required>
+            </div>
+            <div class="form-actions form-actions--stack">
+                <button type="submit" class="btn app-button app-button--primary">Enter control plane</button>
+                <a href="{{ url_for('web.index') }}" class="btn app-button app-button--ghost">Return to pipeline</a>
+            </div>
+        </form>
+    </div>
+</section>
 {% endblock %}
