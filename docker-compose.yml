@@ -8,6 +8,9 @@ services:
     environment:
       - FLASK_DEBUG=true
       - PORT=8080
+      - OTEL_ENABLED=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      - OTEL_SERVICE_NAME=article-summarizer-api
     volumes:
       - ./outputs:/app/outputs
       - ./.cache:/app/.cache
@@ -15,6 +18,7 @@ services:
       - postgres
       - redis
       - rabbitmq
+      - jaeger
     restart: unless-stopped
 
   worker:
@@ -102,6 +106,15 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
     depends_on:
       - prometheus
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4317:4317"     # OTLP gRPC receiver
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
     restart: unless-stopped
 
 volumes:

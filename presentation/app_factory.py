@@ -18,6 +18,7 @@ from config import config
 from database import upgrade_schema
 from infrastructure.container import build_runtime_container
 from modules.logging_config import setup_logging
+from modules.tracing import setup_tracing
 from presentation.blueprints.api import api_bp
 from presentation.blueprints.auth import auth_bp
 from presentation.blueprints.web import web_bp
@@ -33,6 +34,9 @@ def create_app() -> Flask:
         template_folder=str(project_root / "templates"),
         static_folder=str(project_root / "static"),
     )
+
+    # OpenTelemetry must be set up before blueprint registration
+    setup_tracing(app)
     secret_key = os.getenv("SECRET_KEY")
     if not secret_key:
         if os.getenv("FLASK_DEBUG", "false").lower() != "true":
