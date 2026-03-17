@@ -315,11 +315,10 @@ class TextProcessor:
             # Numbered reference / footnote items: "3) de 2025...", "1. texto..."
             r"^\d+[\)\.]\s",
             # Portuguese UI / marketplace / book-store patterns
-            r"^(obter|comprar|encontrar|procure|ir para|adicionar|ver todos|baixar|acessar)\b",
+            r"^(obter|comprar|encontrar|procure|ir para|ver todos|baixar)\b",
             r"^(livraria|editora|publicado por|publicada por|sobre este|sobre o livro)\b",
             r"(todos os vendedores|e-book dispon|livro impresso|google play|eBookstore)",
-            r"^(nenhum|nenhuma)\s",
-            r"^(ler|ouvir|assistir|compartilhar|denunciar|sinalizar)\b",
+            r"^(ouvir|assistir|denunciar|sinalizar)\b",
         ]
 
         return all(not re.search(pattern, sentence.lower()) for pattern in ui_patterns)

@@ -4,13 +4,15 @@ import HomePage from './pages/HomePage'
 import HistoryPage from './pages/HistoryPage'
 import SettingsPage from './pages/SettingsPage'
 import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Standalone page — no nav/footer wrapper */}
+        {/* Standalone pages — no nav/footer wrapper */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
 
         {/* Pages with Layout (header + footer) */}
         <Route path="/" element={<Layout />}>

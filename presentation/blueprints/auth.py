@@ -58,6 +58,44 @@ def api_login():
     return response
 
 
+@auth_bp.post("/register")
+def api_register():
+    limited = enforce_rate_limit("auth")
+    if limited:
+        return limited
+
+    data = request.get_json(silent=True) or {}
+    username = data.get("username", "").strip()
+    password = data.get("password", "")
+    if not username or not password:
+        return jsonify({"success": False, "error": "Username and password required."}), 400
+
+    container = get_container()
+    if container.user_repository.get_by_username(username):
+        return jsonify({"success": False, "error": "Username already taken."}), 409
+
+    from datetime import datetime  # noqa: PLC0415
+    from uuid import uuid4  # noqa: PLC0415
+
+    from domain.entities import User, UserRole  # noqa: PLC0415
+
+    user = User(
+        id=str(uuid4()),
+        username=username,
+        password_hash=container.password_service.hash_password(password),
+        role=UserRole.USER,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    container.user_repository.add(user)
+
+    access_token, refresh_token = _build_tokens(user)
+    resp = jsonify({"success": True, "username": user.username, "role": user.role.value})
+    set_access_cookies(resp, access_token)
+    set_refresh_cookies(resp, refresh_token)
+    return resp, 201
+
+
 @auth_bp.post("/logout")
 def api_logout():
     response = jsonify({"success": True, "message": "Logged out."})

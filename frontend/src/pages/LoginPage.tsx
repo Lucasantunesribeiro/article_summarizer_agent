@@ -45,7 +45,7 @@ export default function LoginPage() {
         </Link>
         <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
           <span className="hidden sm:block">Não tem uma conta?</span>
-          <span className="text-primary font-medium cursor-default">Criar conta</span>
+          <Link to="/register" className="text-primary font-medium hover:opacity-80 transition">Criar conta</Link>
         </div>
       </header>
 
