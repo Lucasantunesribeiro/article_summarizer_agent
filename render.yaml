@@ -18,3 +18,12 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.13.0"
+
+  - type: worker
+    name: article_summarizer_beat
+    env: python
+    buildCommand: "./render-build.sh"
+    startCommand: "celery -A celery_app beat --loglevel=info --schedule /tmp/celerybeat-schedule"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.0"

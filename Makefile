@@ -72,6 +72,9 @@ clean:         ## Remove build artefacts and cache
 worker:        ## Start Celery worker
 	$(VENV)/bin/celery -A celery_app worker --loglevel=info
 
+beat:          ## Start Celery Beat scheduler (outbox relay, requires broker)
+	$(VENV)/bin/celery -A celery_app beat --loglevel=info
+
 flower:        ## Start Flower Celery monitoring dashboard (requires Redis)
 	$(VENV)/bin/celery -A celery_app flower --port=5555
 
