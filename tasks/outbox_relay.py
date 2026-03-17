@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
 
 from celery_app import celery
+from infrastructure.repositories import SqlAlchemyOutboxRepository
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +33,6 @@ def _get_amqp_url() -> str:
 def relay_outbox_events(self):
     """Scan pending outbox entries and publish them to the domain_events exchange."""
     try:
-        from infrastructure.repositories import SqlAlchemyOutboxRepository
-
         repo = SqlAlchemyOutboxRepository()
         pending = repo.get_pending(limit=50)
 
@@ -77,10 +77,8 @@ def relay_outbox_events(self):
                     failed_count += 1
         finally:
             if connection is not None:
-                try:
+                with contextlib.suppress(Exception):
                     connection.release()
-                except Exception:
-                    pass
 
         logger.info(
             "Outbox relay: published=%d failed=%d total_pending=%d",
