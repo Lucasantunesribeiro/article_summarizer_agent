@@ -1,11 +1,36 @@
 import type { Task } from '../api/tasks'
 
-const STATUS_COLORS: Record<string, string> = {
-  queued: 'bg-yellow-100 text-yellow-800',
-  processing: 'bg-blue-100 text-blue-800',
-  done: 'bg-green-100 text-green-800',
-  failed: 'bg-red-100 text-red-800',
-  error: 'bg-red-100 text-red-800',
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; classes: string; pulse?: boolean; dot: string }
+> = {
+  queued: {
+    label: 'Pendente',
+    classes: 'bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400',
+    pulse: true,
+    dot: 'bg-blue-500',
+  },
+  processing: {
+    label: 'Processando',
+    classes: 'bg-yellow-500/10 border-yellow-500/20 text-yellow-600 dark:text-yellow-400',
+    pulse: true,
+    dot: 'bg-yellow-500',
+  },
+  done: {
+    label: 'Concluído',
+    classes: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400',
+    dot: 'bg-emerald-500',
+  },
+  failed: {
+    label: 'Falha',
+    classes: 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400',
+    dot: 'bg-red-500',
+  },
+  error: {
+    label: 'Erro',
+    classes: 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400',
+    dot: 'bg-red-500',
+  },
 }
 
 interface Props {
@@ -13,35 +38,48 @@ interface Props {
 }
 
 export default function TaskCard({ task }: Props) {
+  const cfg = STATUS_CONFIG[task.status] ?? {
+    label: task.status,
+    classes: 'bg-slate-100 border-slate-200 text-slate-600 dark:text-slate-400',
+    dot: 'bg-slate-400',
+  }
+
   return (
-    <div className="bg-white rounded-lg shadow-sm border p-4">
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <p className="text-sm font-mono text-gray-500 truncate">{task.url}</p>
+    <div className="bg-white dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/50 p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <p className="text-xs font-mono text-slate-500 dark:text-slate-400 truncate flex-1">
+          {task.url}
+        </p>
         <span
-          className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${STATUS_COLORS[task.status] ?? 'bg-gray-100 text-gray-700'}`}
+          className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border font-medium whitespace-nowrap shrink-0 ${cfg.classes}`}
         >
-          {task.status}
+          <span className={`size-1.5 rounded-full ${cfg.dot} ${cfg.pulse ? 'animate-pulse' : ''}`} />
+          {cfg.label}
         </span>
       </div>
 
-      {task.status === 'processing' || task.status === 'queued' ? (
+      {(task.status === 'processing' || task.status === 'queued') && (
         <div className="mt-2">
-          <div className="w-full bg-gray-200 rounded-full h-1.5">
+          <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
             <div
-              className="bg-blue-500 h-1.5 rounded-full transition-all"
-              style={{ width: `${task.progress}%` }}
+              className="bg-primary h-1.5 rounded-full transition-all duration-500"
+              style={{ width: `${Math.max(task.progress, 3)}%` }}
             />
           </div>
-          <p className="text-xs text-gray-500 mt-1">{task.message}</p>
+          {task.message && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">{task.message}</p>
+          )}
         </div>
-      ) : null}
-
-      {task.status === 'done' && task.summary && (
-        <p className="text-sm text-gray-700 mt-2 line-clamp-3">{task.summary}</p>
       )}
 
-      {task.status === 'failed' && task.error && (
-        <p className="text-sm text-red-600 mt-2">{task.error}</p>
+      {task.status === 'done' && task.summary && (
+        <p className="text-sm text-slate-700 dark:text-slate-300 mt-2 line-clamp-3 leading-relaxed">
+          {task.summary}
+        </p>
+      )}
+
+      {(task.status === 'failed' || task.status === 'error') && task.error && (
+        <p className="text-xs text-red-600 dark:text-red-400 mt-2">{task.error}</p>
       )}
     </div>
   )
