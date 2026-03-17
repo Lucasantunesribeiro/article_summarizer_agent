@@ -43,7 +43,7 @@ class ArticlePipelineRunner:
                 raise ValueError("Insufficient content extracted.")
 
             processed = self.text_processor.process_text(scraped["content"])
-            if len(processed.get("sentences", [])) < 2:
+            if len(processed.get("sentences", [])) < 1:
                 raise ValueError("Insufficient sentences after processing.")
 
             summary = self.summarizer.summarize(

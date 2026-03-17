@@ -23,3 +23,7 @@ export async function refreshToken(): Promise<string> {
   const res = await apiClient.post('/api/auth/refresh')
   return res.data.access_token as string
 }
+
+export async function register(username: string, password: string): Promise<void> {
+  await apiClient.post('/api/auth/register', { username, password })
+}
