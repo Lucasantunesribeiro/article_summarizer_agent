@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+@layer base {
+  body {
+    font-family: 'Inter', sans-serif;
+    @apply bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 antialiased;
+  }
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
