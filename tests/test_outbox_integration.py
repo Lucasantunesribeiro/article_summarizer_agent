@@ -10,8 +10,9 @@ Skipped automatically when celery is not installed.
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 celery = pytest.importorskip("celery", reason="celery not installed")
 
