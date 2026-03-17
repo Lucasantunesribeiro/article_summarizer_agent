@@ -1,278 +1,230 @@
 {% extends "base.html" %}
 
-{% block title %}Home - Article Summarizer Agent{% endblock %}
+{% block title %}Pipeline - Article Summarizer Agent{% endblock %}
 
 {% block content %}
-<!-- Hero Section -->
-<div class="row mb-5">
-    <div class="col-12">
-        <div class="hero-banner bg-gradient-primary text-white rounded-3 p-5 text-center">
-            <h1 class="display-4 fw-bold mb-3">
-                <i class="bi bi-robot"></i>
-                Article Summarizer Agent
-            </h1>
-            <p class="lead mb-4">
-                Transforme qualquer artigo web em um resumo inteligente com IA
-            </p>
-            <div class="d-flex justify-content-center gap-3">
-                <span class="badge bg-light text-dark px-3 py-2">
-                    <i class="bi bi-lightning-charge"></i> Rápido
-                </span>
-                <span class="badge bg-light text-dark px-3 py-2">
-                    <i class="bi bi-brain"></i> Inteligente
-                </span>
-                <span class="badge bg-light text-dark px-3 py-2">
-                    <i class="bi bi-download"></i> Múltiplos Formatos
-                </span>
-            </div>
+<section class="hero-shell">
+    <div class="hero-shell__copy">
+        <p class="section-kicker">Asynchronous article intelligence</p>
+        <h1 class="hero-title">A frontend rebuilt as an operations cockpit for the real pipeline.</h1>
+        <p class="hero-copy">
+            Paste a public article URL, choose the summarization strategy, dispatch the job and
+            follow the execution until the artifacts are ready for download.
+        </p>
+        <div class="hero-tags">
+            <span class="hero-tag">Public URL intake</span>
+            <span class="hero-tag">TF-IDF or Gemini</span>
+            <span class="hero-tag">Async execution</span>
+            <span class="hero-tag">Downloadable outputs</span>
+        </div>
+
+        <div class="hero-rail">
+            <article class="hero-step">
+                <span class="hero-step__index">01</span>
+                <div>
+                    <h2>Ingest</h2>
+                    <p>Validate public URLs, reject malformed inputs and create a persisted task record.</p>
+                </div>
+            </article>
+            <article class="hero-step">
+                <span class="hero-step__index">02</span>
+                <div>
+                    <h2>Process</h2>
+                    <p>Scrape, normalize and summarize content through the configured pipeline.</p>
+                </div>
+            </article>
+            <article class="hero-step">
+                <span class="hero-step__index">03</span>
+                <div>
+                    <h2>Deliver</h2>
+                    <p>Track progress, inspect compression metrics and export TXT, Markdown or JSON.</p>
+                </div>
+            </article>
         </div>
     </div>
-</div>
 
-<!-- Main Form -->
-<div class="row">
-    <div class="col-lg-8 mx-auto">
-        <div class="card shadow-lg border-0">
-            <div class="card-header bg-white border-0 pt-4">
-                <h3 class="card-title text-center mb-0">
-                    <i class="bi bi-link-45deg text-primary"></i>
-                    Insira a URL do Artigo
-                </h3>
-            </div>
-            
-            <div class="card-body p-4">
-                <form id="summarizeForm">
-                    <!-- URL Input -->
-                    <div class="mb-4">
-                        <label for="articleUrl" class="form-label fw-bold">
-                            <i class="bi bi-globe"></i> URL do Artigo
-                        </label>
-                        <div class="input-group input-group-lg">
-                            <span class="input-group-text">
-                                <i class="bi bi-link"></i>
-                            </span>
-                            <input 
-                                type="url" 
-                                class="form-control" 
-                                id="articleUrl" 
-                                placeholder="https://exemplo.com/artigo" 
-                                required
-                            >
-                        </div>
-                        <div class="form-text">
-                            Cole aqui a URL completa do artigo que deseja resumir
-                        </div>
-                    </div>
-
-                    <!-- Configuration Row -->
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <label for="method" class="form-label fw-bold">
-                                <i class="bi bi-gear"></i> Método de Sumarização
-                            </label>
-                            <select class="form-select" id="method">
-                                <option value="extractive" selected>
-                                    Extrativo (Rápido)
-                                </option>
-                                <option value="generative">
-                                    Generativo (IA - requer chave Gemini)
-                                </option>
-                            </select>
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <label for="length" class="form-label fw-bold">
-                                <i class="bi bi-rulers"></i> Tamanho do Resumo
-                            </label>
-                            <select class="form-select" id="length">
-                                <option value="short">
-                                    Curto (3 sentenças)
-                                </option>
-                                <option value="medium" selected>
-                                    Médio (5 sentenças)
-                                </option>
-                                <option value="long">
-                                    Longo (8 sentenças)
-                                </option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Submit Button -->
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
-                            <i class="bi bi-play-circle"></i>
-                            Gerar Resumo
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Progress Section (Hidden by default) -->
-<div id="progressSection" class="row mt-4" style="display: none;">
-    <div class="col-lg-8 mx-auto">
-        <div class="card shadow border-0">
-            <div class="card-body p-4">
-                <h5 class="card-title mb-3">
-                    <i class="bi bi-hourglass-split text-primary"></i>
-                    Processando Artigo
-                </h5>
-                
-                <div class="progress mb-3" style="height: 20px;">
-                    <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
-                         role="progressbar" style="width: 0%">
-                        0%
-                    </div>
+    <div class="hero-shell__panel">
+        <article class="surface-card surface-card--hero">
+            <div class="panel-heading">
+                <div>
+                    <p class="section-kicker">Dispatch a job</p>
+                    <h2>Submit article for summarization</h2>
                 </div>
-                
-                <div id="progressMessage" class="text-muted">
-                    Iniciando processamento...
-                </div>
-                
-                <div class="mt-3">
-                    <small class="text-muted">
-                        <i class="bi bi-info-circle"></i>
-                        Este processo pode levar alguns minutos dependendo do tamanho do artigo
+                <span class="status-pill status-pill--accent" id="homeStatusPill">Checking API</span>
+            </div>
+
+            <form id="summarizeForm" class="app-form">
+                <div class="app-field">
+                    <label for="articleUrl" class="form-label">Article URL</label>
+                    <input type="url" class="form-control form-control-lg app-input" id="articleUrl"
+                        placeholder="https://example.com/article" autocomplete="url" required>
+                    <small class="field-note">
+                        Use a public page with meaningful text content. Internal hosts and private networks are blocked.
                     </small>
                 </div>
-            </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="method" class="form-label">Method</label>
+                        <select class="form-select app-select" id="method">
+                            <option value="extractive"
+                                {% if settings_data.get('summarization.default_method', 'extractive') == 'extractive' %}selected{% endif %}>
+                                Extractive
+                            </option>
+                            <option value="generative"
+                                {% if settings_data.get('summarization.default_method') == 'generative' %}selected{% endif %}>
+                                Generative
+                            </option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="length" class="form-label">Length</label>
+                        <select class="form-select app-select" id="length">
+                            <option value="short"
+                                {% if settings_data.get('summarization.default_length') == 'short' %}selected{% endif %}>
+                                Short
+                            </option>
+                            <option value="medium"
+                                {% if settings_data.get('summarization.default_length', 'medium') == 'medium' %}selected{% endif %}>
+                                Medium
+                            </option>
+                            <option value="long"
+                                {% if settings_data.get('summarization.default_length') == 'long' %}selected{% endif %}>
+                                Long
+                            </option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn app-button app-button--primary" id="submitBtn">
+                        Start summarization
+                    </button>
+                    <a class="btn app-button app-button--ghost" href="{{ url_for('web.history') }}">
+                        Open history
+                    </a>
+                </div>
+            </form>
+        </article>
+
+        <div class="status-grid">
+            <article class="status-card">
+                <span class="status-card__label">Health</span>
+                <strong id="publicStatus">Loading</strong>
+            </article>
+            <article class="status-card">
+                <span class="status-card__label">Default mode</span>
+                <strong id="activeMethod">{{ settings_data.get('summarization.default_method', 'extractive') }}</strong>
+            </article>
+            <article class="status-card">
+                <span class="status-card__label">Active model</span>
+                <strong id="activeModel">Loading</strong>
+            </article>
+            <article class="status-card">
+                <span class="status-card__label">Cache</span>
+                <strong id="cacheStrategy">Loading</strong>
+            </article>
         </div>
     </div>
-</div>
+</section>
 
-<!-- Results Section (Hidden by default) -->
-<div id="resultsSection" class="row mt-4" style="display: none;">
-    <div class="col-12">
-        <div class="card shadow border-0">
-            <div class="card-header bg-success text-white">
-                <h4 class="card-title mb-0">
-                    <i class="bi bi-check-circle"></i>
-                    Resumo Gerado com Sucesso!
-                </h4>
+<section id="progressSection" class="surface-card surface-card--progress d-none">
+    <div class="panel-heading">
+        <div>
+            <p class="section-kicker">Execution status</p>
+            <h2 id="progressStage">Job accepted</h2>
+        </div>
+        <span class="status-pill" id="progressMeta">Waiting for worker</span>
+    </div>
+    <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="progress-track__fill" id="progressBar"></div>
+    </div>
+    <p class="progress-copy" id="progressMessage">The task has been queued and will start shortly.</p>
+</section>
+
+<section id="resultsSection" class="results-grid d-none">
+    <article class="surface-card result-panel">
+        <div class="panel-heading">
+            <div>
+                <p class="section-kicker">Summary output</p>
+                <h2>Generated content</h2>
             </div>
-            
-            <div class="card-body p-4">
-                <!-- Summary Preview -->
-                <div class="mb-4">
-                    <h5 class="text-primary">
-                        <i class="bi bi-file-text"></i> Resumo
-                    </h5>
-                    <div id="summaryText" class="bg-light p-4 rounded border-start border-primary border-4">
-                        <!-- Summary will be loaded here -->
-                    </div>
-                </div>
+            <span class="status-pill status-pill--success" id="resultMethodUsed">Ready</span>
+        </div>
+        <p class="summary-body" id="resultSummaryText"></p>
+    </article>
 
-                <!-- Statistics -->
-                <div class="row mb-4">
-                    <div class="col-md-3">
-                        <div class="stat-card text-center p-3 bg-primary text-white rounded">
-                            <i class="bi bi-file-word display-6"></i>
-                            <div class="mt-2">
-                                <div id="originalWords" class="h4 mb-0">-</div>
-                                <small>Palavras Originais</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="stat-card text-center p-3 bg-success text-white rounded">
-                            <i class="bi bi-file-earmark-text display-6"></i>
-                            <div class="mt-2">
-                                <div id="summaryWords" class="h4 mb-0">-</div>
-                                <small>Palavras Resumo</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="stat-card text-center p-3 bg-info text-white rounded">
-                            <i class="bi bi-percent display-6"></i>
-                            <div class="mt-2">
-                                <div id="compressionRatio" class="h4 mb-0">-</div>
-                                <small>Taxa Compressão</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="stat-card text-center p-3 bg-warning text-white rounded">
-                            <i class="bi bi-stopwatch display-6"></i>
-                            <div class="mt-2">
-                                <div id="executionTime" class="h4 mb-0">-</div>
-                                <small>Tempo Execução</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+    <aside class="surface-card result-side">
+        <div class="result-metrics">
+            <article class="metric-card">
+                <span>Original words</span>
+                <strong id="originalWords">0</strong>
+            </article>
+            <article class="metric-card">
+                <span>Summary words</span>
+                <strong id="summaryWords">0</strong>
+            </article>
+            <article class="metric-card">
+                <span>Compression</span>
+                <strong id="compressionRatio">0%</strong>
+            </article>
+            <article class="metric-card">
+                <span>Execution time</span>
+                <strong id="executionTime">0s</strong>
+            </article>
+        </div>
 
-                <!-- Download Buttons -->
-                <div class="d-flex flex-wrap gap-2 justify-content-center">
-                    <button id="downloadTxt" class="btn btn-outline-primary">
-                        <i class="bi bi-file-text"></i> Download TXT
-                    </button>
-                    <button id="downloadMd" class="btn btn-outline-success">
-                        <i class="bi bi-file-earmark-richtext"></i> Download Markdown
-                    </button>
-                    <button id="downloadJson" class="btn btn-outline-info">
-                        <i class="bi bi-file-earmark-code"></i> Download JSON
-                    </button>
-                    <button onclick="startNewSummarization()" class="btn btn-secondary">
-                        <i class="bi bi-arrow-clockwise"></i> Novo Resumo
-                    </button>
-                </div>
+        <div class="result-meta">
+            <div class="result-meta__row">
+                <span>Task reference</span>
+                <strong id="taskReference">Pending</strong>
+            </div>
+            <div class="result-meta__row">
+                <span>Source URL</span>
+                <strong id="articleOrigin">Pending</strong>
             </div>
         </div>
-    </div>
-</div>
 
-<!-- Quick Examples -->
-<div class="row mt-5">
-    <div class="col-12">
-        <div class="card border-0 bg-light">
-            <div class="card-body p-4">
-                <h5 class="card-title text-center mb-4">
-                    <i class="bi bi-lightbulb text-warning"></i>
-                    Exemplos de URLs para Testar
-                </h5>
-                
-                <div class="row">
-                    <div class="col-md-4 mb-3">
-                        <div class="example-card p-3 bg-white rounded border h-100">
-                            <h6 class="text-primary">
-                                <i class="bi bi-newspaper"></i> Notícias
-                            </h6>
-                            <small class="text-muted">
-                                Artigos de jornais e sites de notícias
-                            </small>
-                        </div>
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <div class="example-card p-3 bg-white rounded border h-100">
-                            <h6 class="text-success">
-                                <i class="bi bi-journal-bookmark"></i> Artigos Técnicos
-                            </h6>
-                            <small class="text-muted">
-                                Blogs técnicos e artigos científicos
-                            </small>
-                        </div>
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <div class="example-card p-3 bg-white rounded border h-100">
-                            <h6 class="text-info">
-                                <i class="bi bi-book"></i> Documentação
-                            </h6>
-                            <small class="text-muted">
-                                Manuais e guias online
-                            </small>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="download-grid">
+            <button id="downloadTxt" class="btn app-button app-button--ghost" type="button">Download TXT</button>
+            <button id="downloadMd" class="btn app-button app-button--ghost" type="button">Download MD</button>
+            <button id="downloadJson" class="btn app-button app-button--ghost" type="button">Download JSON</button>
+            <button class="btn app-button app-button--primary" type="button" onclick="startNewSummarization()">
+                New run
+            </button>
         </div>
-    </div>
-</div>
+    </aside>
+</section>
+
+<section class="capability-grid">
+    <article class="surface-card capability-card">
+        <p class="section-kicker">What is exposed</p>
+        <h2>All core flows are available in the UI.</h2>
+        <ul class="capability-list">
+            <li>Public submit endpoint with live polling.</li>
+            <li>Protected history and statistics for processed tasks.</li>
+            <li>Admin controls for runtime settings, cache and secret rotation.</li>
+            <li>System health and storage visibility for operational confidence.</li>
+        </ul>
+    </article>
+
+    <article class="surface-card capability-card capability-card--outline">
+        <p class="section-kicker">Backend alignment</p>
+        <h2>No more fake screens.</h2>
+        <p>
+            The frontend now reflects the actual Flask routes, JWT flow, persisted settings, runtime
+            validation and generated artifact downloads instead of placeholder content.
+        </p>
+        <div class="hero-tags">
+            <span class="hero-tag">/api/sumarizar</span>
+            <span class="hero-tag">/api/tarefa/&lt;id&gt;</span>
+            <span class="hero-tag">/api/download</span>
+            <span class="hero-tag">/api/status</span>
+        </div>
+    </article>
+</section>
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/index.js') }}" nonce="{{ csp_nonce }}"></script>
-{% endblock %} 
+{% endblock %}

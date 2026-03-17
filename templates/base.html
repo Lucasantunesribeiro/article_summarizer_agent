@@ -6,6 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Article Summarizer Agent{% endblock %}</title>
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
+        rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/custom.css') }}" rel="stylesheet">
@@ -13,58 +19,79 @@
     {% block head %}{% endblock %}
 </head>
 
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('web.index') }}">
-                <i class="bi bi-robot"></i>
-                Article Summarizer Agent
+<body class="page-shell {% block body_class %}{% endblock %}">
+    <div class="shell-backdrop" aria-hidden="true"></div>
+
+    <nav class="navbar navbar-expand-xl app-nav">
+        <div class="container-xxl">
+            <a class="navbar-brand app-brand" href="{{ url_for('web.index') }}">
+                <span class="app-brand__mark">
+                    <i class="bi bi-command"></i>
+                </span>
+                <span>
+                    <span class="app-brand__title">Article Summarizer Agent</span>
+                    <span class="app-brand__subtitle">Async article intelligence cockpit</span>
+                </span>
             </a>
 
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <button class="navbar-toggler app-nav__toggler" type="button" data-bs-toggle="collapse"
+                data-bs-target="#primaryNav" aria-controls="primaryNav" aria-expanded="false"
+                aria-label="Abrir navegacao">
                 <span class="navbar-toggler-icon"></span>
             </button>
 
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+            <div class="collapse navbar-collapse" id="primaryNav">
+                <ul class="navbar-nav ms-auto align-items-xl-center gap-xl-2">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('web.index') }}">
-                            <i class="bi bi-house-door"></i> Home
+                        <a class="nav-link app-nav__link {% if request.endpoint == 'web.index' %}is-active{% endif %}"
+                            href="{{ url_for('web.index') }}">
+                            Pipeline
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('web.history') }}">
-                            <i class="bi bi-clock-history"></i> Historico
+                        <a class="nav-link app-nav__link {% if request.endpoint == 'web.history' %}is-active{% endif %}"
+                            href="{{ url_for('web.history') }}">
+                            Historico
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('web.about') }}">
-                            <i class="bi bi-info-circle"></i> Sobre
+                        <a class="nav-link app-nav__link {% if request.endpoint == 'web.settings' %}is-active{% endif %}"
+                            href="{{ url_for('web.settings') }}">
+                            Operacoes
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('web.settings') }}">
-                            <i class="bi bi-gear"></i> Configuracoes
+                        <a class="nav-link app-nav__link {% if request.endpoint == 'web.about' %}is-active{% endif %}"
+                            href="{{ url_for('web.about') }}">
+                            Arquitetura
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/apidocs/" target="_blank">
-                            <i class="bi bi-file-code"></i> API Docs
+                        <a class="nav-link app-nav__link" href="/apidocs/" target="_blank" rel="noreferrer">
+                            API Docs
                         </a>
+                    </li>
+                    <li class="nav-item d-none" id="nav-user-pill">
+                        <span class="user-pill">
+                            <span class="user-pill__dot"></span>
+                            <span id="nav-user-text">admin</span>
+                        </span>
                     </li>
                     <li class="nav-item" id="nav-login-link">
-                        <a class="nav-link" href="{{ url_for('web.login') }}">
-                            <i class="bi bi-box-arrow-in-right"></i> Login
+                        <a class="btn btn-outline-secondary app-button app-button--ghost"
+                            href="{{ url_for('web.login') }}">
+                            Entrar
                         </a>
                     </li>
                     <li class="nav-item d-none" id="nav-logout-link">
-                        <a class="nav-link" href="{{ url_for('web.logout') }}">
-                            <i class="bi bi-box-arrow-left"></i> Logout
+                        <a class="btn btn-outline-secondary app-button app-button--ghost"
+                            href="{{ url_for('web.logout') }}">
+                            Sair
                         </a>
                     </li>
                     <li class="nav-item d-none" id="nav-clear-cache-button">
-                        <button class="btn btn-outline-light btn-sm ms-2" onclick="clearCache()">
-                            <i class="bi bi-trash"></i> Limpar Cache
+                        <button class="btn app-button app-button--accent" type="button" onclick="clearCache()">
+                            Limpar cache
                         </button>
                     </li>
                 </ul>
@@ -72,34 +99,61 @@
         </div>
     </nav>
 
-    <main class="container mt-4">
-        <div id="alert-container"></div>
+    <header class="page-ribbon">
+        <div class="container-xxl page-ribbon__inner">
+            <span class="page-ribbon__label">Production-style workflow</span>
+            <span class="page-ribbon__item">JWT + CSRF</span>
+            <span class="page-ribbon__item">Celery / thread fallback</span>
+            <span class="page-ribbon__item">Redis-backed cache</span>
+            <span class="page-ribbon__item">Alembic migrations</span>
+        </div>
+    </header>
+
+    <main class="container-xxl app-main">
+        <div id="alert-container" class="alert-stack" aria-live="polite"></div>
         {% block content %}{% endblock %}
     </main>
 
-    <footer class="bg-dark text-light py-4 mt-5">
-        <div class="container">
-            <div class="row">
-                <div class="col-md-6">
-                    <h5><i class="bi bi-robot"></i> Article Summarizer Agent</h5>
-                    <p class="text-muted">Resumos inteligentes de artigos web usando IA</p>
-                </div>
-                <div class="col-md-6 text-md-end">
-                    <p class="text-muted">
-                        Versao 3.0 •
-                        <a href="https://github.com/Lucasantunesribeiro/article_summarizer_agent" class="text-light">GitHub</a>
+    <footer class="app-footer">
+        <div class="container-xxl">
+            <div class="row g-4 align-items-start">
+                <div class="col-lg-5">
+                    <p class="footer-kicker">Article Summarizer Agent</p>
+                    <h2 class="footer-title">Frontend rebuilt around the real backend workflow.</h2>
+                    <p class="footer-copy">
+                        Submit public URLs, dispatch asynchronous processing, inspect runtime settings,
+                        download generated artifacts and monitor task health from a single surface.
                     </p>
-                    <div class="mt-2">
-                        <span class="badge bg-success me-2">Python</span>
-                        <span class="badge bg-info me-2">Flask</span>
-                        <span class="badge bg-warning">IA</span>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <h3 class="footer-heading">Core stack</h3>
+                    <ul class="footer-list">
+                        <li>Flask + Jinja</li>
+                        <li>SQLAlchemy + Alembic</li>
+                        <li>Redis cache and broker</li>
+                        <li>Celery workers</li>
+                    </ul>
+                </div>
+                <div class="col-sm-6 col-lg-4">
+                    <h3 class="footer-heading">Operational surfaces</h3>
+                    <div class="footer-tags">
+                        <span class="footer-tag">History</span>
+                        <span class="footer-tag">Settings</span>
+                        <span class="footer-tag">Protected stats</span>
+                        <span class="footer-tag">Health</span>
+                        <span class="footer-tag">Downloads</span>
                     </div>
+                    <a class="footer-link" href="https://github.com/Lucasantunesribeiro/article_summarizer_agent"
+                        target="_blank" rel="noreferrer">
+                        View repository on GitHub
+                    </a>
                 </div>
             </div>
         </div>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" nonce="{{ csp_nonce }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+        nonce="{{ csp_nonce }}"></script>
     <script src="{{ url_for('static', filename='js/auth.js') }}" nonce="{{ csp_nonce }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}" nonce="{{ csp_nonce }}"></script>
 

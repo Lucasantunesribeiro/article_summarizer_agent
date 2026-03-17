@@ -1,254 +1,245 @@
 {% extends "base.html" %}
 
-{% block title %}Configurações - Article Summarizer Agent{% endblock %}
+{% block title %}Operacoes - Article Summarizer Agent{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-12">
-        <h2 class="text-primary">
-            <i class="bi bi-gear"></i>
-            Configurações do Sistema
-        </h2>
-        <p class="text-muted mb-0">
-            Esta tela agora lê e persiste configurações reais pela API.
+<section class="page-header">
+    <div>
+        <p class="section-kicker">Administrative control plane</p>
+        <h1 class="page-title">Runtime settings, health and security actions</h1>
+        <p class="page-copy">
+            Persist operational settings, validate the live runtime, clear cache and rotate JWT
+            secrets from the same protected page.
         </p>
     </div>
-</div>
-
-<div class="row g-4">
-    <div class="col-lg-8">
-        <form id="settingsForm" class="d-grid gap-4">
-            <div class="card shadow border-0">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="card-title mb-0"><i class="bi bi-globe"></i> Scraping</h5>
-                </div>
-                <div class="card-body row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label" for="scrapingTimeout">Timeout (s)</label>
-                        <input class="form-control" id="scrapingTimeout" type="number" min="5" max="120"
-                               value="{{ settings_data.get('scraping.timeout', 30) }}">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" for="scrapingRetries">Retries</label>
-                        <input class="form-control" id="scrapingRetries" type="number" min="1" max="10"
-                               value="{{ settings_data.get('scraping.max_retries', 3) }}">
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label" for="maxContentBytes">Limite de resposta (bytes)</label>
-                        <input class="form-control" id="maxContentBytes" type="number" min="1048576" step="1024"
-                               value="{{ settings_data.get('scraping.max_content_bytes', 10485760) }}">
-                    </div>
-                </div>
-            </div>
-
-            <div class="card shadow border-0">
-                <div class="card-header bg-success text-white">
-                    <h5 class="card-title mb-0"><i class="bi bi-brain"></i> Sumarização</h5>
-                </div>
-                <div class="card-body row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label" for="defaultMethod">Método padrão</label>
-                        <select class="form-select" id="defaultMethod">
-                            <option value="extractive" {% if settings_data.get('summarization.default_method') == 'extractive' %}selected{% endif %}>Extractive</option>
-                            <option value="generative" {% if settings_data.get('summarization.default_method') == 'generative' %}selected{% endif %}>Generative</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" for="defaultLength">Tamanho padrão</label>
-                        <select class="form-select" id="defaultLength">
-                            <option value="short" {% if settings_data.get('summarization.default_length') == 'short' %}selected{% endif %}>Short</option>
-                            <option value="medium" {% if settings_data.get('summarization.default_length', 'medium') == 'medium' %}selected{% endif %}>Medium</option>
-                            <option value="long" {% if settings_data.get('summarization.default_length') == 'long' %}selected{% endif %}>Long</option>
-                        </select>
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label" for="geminiModelId">Gemini Model ID</label>
-                        <input class="form-control" id="geminiModelId" type="text"
-                               value="{{ settings_data.get('summarization.gemini_model_id', 'gemini-2.5-flash-preview-05-20') }}">
-                    </div>
-                </div>
-            </div>
-
-            <div class="card shadow border-0">
-                <div class="card-header bg-info text-white">
-                    <h5 class="card-title mb-0"><i class="bi bi-hdd"></i> Cache e Rate Limit</h5>
-                </div>
-                <div class="card-body row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label" for="cacheTtl">Cache TTL (s)</label>
-                        <input class="form-control" id="cacheTtl" type="number" min="60"
-                               value="{{ settings_data.get('output.cache_ttl', 86400) }}">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" for="cacheEnabled">Cache habilitado</label>
-                        <select class="form-select" id="cacheEnabled">
-                            <option value="true" {% if settings_data.get('output.cache_enabled', true) %}selected{% endif %}>Sim</option>
-                            <option value="false" {% if not settings_data.get('output.cache_enabled', true) %}selected{% endif %}>Não</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" for="submitMaxRequests">Submit max req/window</label>
-                        <input class="form-control" id="submitMaxRequests" type="number" min="1"
-                               value="{{ settings_data.get('rate_limit.submit.max_requests', 10) }}">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" for="submitWindowSeconds">Janela submit (s)</label>
-                        <input class="form-control" id="submitWindowSeconds" type="number" min="10"
-                               value="{{ settings_data.get('rate_limit.submit.window_seconds', 60) }}">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" for="authMaxRequests">Auth max req/window</label>
-                        <input class="form-control" id="authMaxRequests" type="number" min="1"
-                               value="{{ settings_data.get('rate_limit.auth.max_requests', 5) }}">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" for="authWindowSeconds">Janela auth (s)</label>
-                        <input class="form-control" id="authWindowSeconds" type="number" min="10"
-                               value="{{ settings_data.get('rate_limit.auth.window_seconds', 300) }}">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" for="pollingMaxRequests">Polling max req/window</label>
-                        <input class="form-control" id="pollingMaxRequests" type="number" min="1"
-                               value="{{ settings_data.get('rate_limit.polling.max_requests', 60) }}">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" for="pollingWindowSeconds">Janela polling (s)</label>
-                        <input class="form-control" id="pollingWindowSeconds" type="number" min="10"
-                               value="{{ settings_data.get('rate_limit.polling.window_seconds', 60) }}">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" for="adminMaxRequests">Admin max req/window</label>
-                        <input class="form-control" id="adminMaxRequests" type="number" min="1"
-                               value="{{ settings_data.get('rate_limit.admin.max_requests', 10) }}">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" for="adminWindowSeconds">Janela admin (s)</label>
-                        <input class="form-control" id="adminWindowSeconds" type="number" min="10"
-                               value="{{ settings_data.get('rate_limit.admin.window_seconds', 300) }}">
-                    </div>
-                </div>
-            </div>
-        </form>
+    <div class="page-header__actions">
+        <button type="button" class="btn app-button app-button--primary" id="saveSettingsBtn">
+            Save changes
+        </button>
+        <button type="button" class="btn app-button app-button--ghost" id="testSettingsBtn">
+            Validate runtime
+        </button>
     </div>
+</section>
 
-    <div class="col-lg-4">
-        <div class="card shadow border-0 mb-4">
-            <div class="card-header bg-dark text-white">
-                <h5 class="card-title mb-0"><i class="bi bi-person-lock"></i> Ações Administrativas</h5>
-            </div>
-            <div class="card-body d-grid gap-2">
-                <button type="button" class="btn btn-outline-primary" id="testSettingsBtn">
-                    <i class="bi bi-play-circle"></i> Testar Configuração
-                </button>
-                <button type="button" class="btn btn-outline-success" id="saveSettingsBtn">
-                    <i class="bi bi-save"></i> Salvar Alterações
-                </button>
-                <button type="button" class="btn btn-outline-danger" id="clearCacheBtn">
-                    <i class="bi bi-trash"></i> Limpar Cache
-                </button>
-            </div>
-        </div>
+<section class="stats-strip stats-strip--admin">
+    <article class="status-card">
+        <span class="status-card__label">Access role</span>
+        <strong id="settingsUserRole">Loading</strong>
+    </article>
+    <article class="status-card">
+        <span class="status-card__label">API status</span>
+        <strong id="settingsHealth">Loading</strong>
+    </article>
+    <article class="status-card">
+        <span class="status-card__label">Default model</span>
+        <strong id="settingsModel">Loading</strong>
+    </article>
+    <article class="status-card">
+        <span class="status-card__label">Cache mode</span>
+        <strong id="settingsCache">Loading</strong>
+    </article>
+</section>
 
-        <div class="card shadow border-0">
-            <div class="card-header bg-secondary text-white">
-                <h6 class="card-title mb-0"><i class="bi bi-info-circle"></i> Observações</h6>
+<div class="admin-layout">
+    <form id="settingsForm" class="admin-layout__main">
+        <article class="surface-card admin-section">
+            <div class="panel-heading">
+                <div>
+                    <p class="section-kicker">Scraping</p>
+                    <h2>Inbound fetch controls</h2>
+                </div>
             </div>
-            <div class="card-body">
-                <ul class="small mb-0">
-                    <li>As alterações ficam persistidas na tabela `settings`.</li>
-                    <li>O endpoint de teste valida se a aplicação continua saudável.</li>
-                    <li>Para ações administrativas via cookie JWT, o CSRF header é enviado pelo `authFetch`.</li>
-                </ul>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label" for="scrapingTimeout">Timeout (seconds)</label>
+                    <input class="form-control app-input" id="scrapingTimeout" type="number" min="5" max="120"
+                        value="{{ settings_data.get('scraping.timeout', 30) }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="scrapingRetries">Retries</label>
+                    <input class="form-control app-input" id="scrapingRetries" type="number" min="1" max="10"
+                        value="{{ settings_data.get('scraping.max_retries', 3) }}">
+                </div>
+                <div class="col-12">
+                    <label class="form-label" for="maxContentBytes">Max response size (bytes)</label>
+                    <input class="form-control app-input" id="maxContentBytes" type="number" min="1048576"
+                        step="1024" value="{{ settings_data.get('scraping.max_content_bytes', 10485760) }}">
+                </div>
             </div>
-        </div>
-    </div>
+        </article>
+
+        <article class="surface-card admin-section">
+            <div class="panel-heading">
+                <div>
+                    <p class="section-kicker">Summarization</p>
+                    <h2>Default generation behavior</h2>
+                </div>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label" for="defaultMethod">Default method</label>
+                    <select class="form-select app-select" id="defaultMethod">
+                        <option value="extractive"
+                            {% if settings_data.get('summarization.default_method') == 'extractive' %}selected{% endif %}>
+                            Extractive
+                        </option>
+                        <option value="generative"
+                            {% if settings_data.get('summarization.default_method') == 'generative' %}selected{% endif %}>
+                            Generative
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="defaultLength">Default length</label>
+                    <select class="form-select app-select" id="defaultLength">
+                        <option value="short"
+                            {% if settings_data.get('summarization.default_length') == 'short' %}selected{% endif %}>
+                            Short
+                        </option>
+                        <option value="medium"
+                            {% if settings_data.get('summarization.default_length', 'medium') == 'medium' %}selected{% endif %}>
+                            Medium
+                        </option>
+                        <option value="long"
+                            {% if settings_data.get('summarization.default_length') == 'long' %}selected{% endif %}>
+                            Long
+                        </option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="form-label" for="geminiModelId">Gemini model id</label>
+                    <input class="form-control app-input" id="geminiModelId" type="text"
+                        value="{{ settings_data.get('summarization.gemini_model_id', 'gemini-2.5-flash-preview-05-20') }}">
+                </div>
+            </div>
+        </article>
+
+        <article class="surface-card admin-section">
+            <div class="panel-heading">
+                <div>
+                    <p class="section-kicker">Cache and abuse control</p>
+                    <h2>Distributed cache and route protection</h2>
+                </div>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label" for="cacheTtl">Cache TTL (seconds)</label>
+                    <input class="form-control app-input" id="cacheTtl" type="number" min="60"
+                        value="{{ settings_data.get('output.cache_ttl', 86400) }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="cacheEnabled">Cache enabled</label>
+                    <select class="form-select app-select" id="cacheEnabled">
+                        <option value="true" {% if settings_data.get('output.cache_enabled', true) %}selected{% endif %}>
+                            Yes
+                        </option>
+                        <option value="false" {% if not settings_data.get('output.cache_enabled', true) %}selected{% endif %}>
+                            No
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="submitMaxRequests">Submit max requests</label>
+                    <input class="form-control app-input" id="submitMaxRequests" type="number" min="1"
+                        value="{{ settings_data.get('rate_limit.submit.max_requests', 10) }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="submitWindowSeconds">Submit window (seconds)</label>
+                    <input class="form-control app-input" id="submitWindowSeconds" type="number" min="10"
+                        value="{{ settings_data.get('rate_limit.submit.window_seconds', 60) }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="authMaxRequests">Auth max requests</label>
+                    <input class="form-control app-input" id="authMaxRequests" type="number" min="1"
+                        value="{{ settings_data.get('rate_limit.auth.max_requests', 5) }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="authWindowSeconds">Auth window (seconds)</label>
+                    <input class="form-control app-input" id="authWindowSeconds" type="number" min="10"
+                        value="{{ settings_data.get('rate_limit.auth.window_seconds', 300) }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="pollingMaxRequests">Polling max requests</label>
+                    <input class="form-control app-input" id="pollingMaxRequests" type="number" min="1"
+                        value="{{ settings_data.get('rate_limit.polling.max_requests', 60) }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="pollingWindowSeconds">Polling window (seconds)</label>
+                    <input class="form-control app-input" id="pollingWindowSeconds" type="number" min="10"
+                        value="{{ settings_data.get('rate_limit.polling.window_seconds', 60) }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="adminMaxRequests">Admin max requests</label>
+                    <input class="form-control app-input" id="adminMaxRequests" type="number" min="1"
+                        value="{{ settings_data.get('rate_limit.admin.max_requests', 10) }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="adminWindowSeconds">Admin window (seconds)</label>
+                    <input class="form-control app-input" id="adminWindowSeconds" type="number" min="10"
+                        value="{{ settings_data.get('rate_limit.admin.window_seconds', 300) }}">
+                </div>
+            </div>
+        </article>
+    </form>
+
+    <aside class="admin-layout__side">
+        <article class="surface-card admin-section">
+            <div class="panel-heading">
+                <div>
+                    <p class="section-kicker">Administrative actions</p>
+                    <h2>Live controls</h2>
+                </div>
+            </div>
+            <div class="action-stack">
+                <button type="button" class="btn app-button app-button--ghost" id="clearCacheBtn">
+                    Clear cache
+                </button>
+                <a href="{{ url_for('web.history') }}" class="btn app-button app-button--ghost">
+                    Open protected history
+                </a>
+                <a href="/apidocs/" target="_blank" rel="noreferrer" class="btn app-button app-button--ghost">
+                    Review API docs
+                </a>
+            </div>
+        </article>
+
+        <article class="surface-card admin-section">
+            <div class="panel-heading">
+                <div>
+                    <p class="section-kicker">JWT rotation</p>
+                    <h2>Rotate signing secret</h2>
+                </div>
+            </div>
+            <div class="app-field">
+                <label class="form-label" for="newSecret">New secret (optional)</label>
+                <input class="form-control app-input" id="newSecret" type="text"
+                    placeholder="Leave blank to generate a strong secret">
+            </div>
+            <div class="app-field">
+                <label class="form-label" for="gracePeriod">Grace period (seconds)</label>
+                <input class="form-control app-input" id="gracePeriod" type="number" min="60" step="60" value="3600">
+            </div>
+            <button type="button" class="btn app-button app-button--accent" id="rotateSecretBtn">
+                Rotate JWT secret
+            </button>
+            <div class="meta-block" id="rotateSecretResult">
+                The current key id and grace period will be displayed here after a successful rotation.
+            </div>
+        </article>
+
+        <article class="surface-card admin-section admin-section--notes">
+            <p class="section-kicker">Runtime notes</p>
+            <ul class="capability-list capability-list--compact">
+                <li>All values persist in the <code>settings</code> table.</li>
+                <li>Save applies changes to the live runtime without rebuilding the Flask app.</li>
+                <li>Protected actions use JWT cookies with the CSRF header automatically attached.</li>
+            </ul>
+        </article>
+    </aside>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script nonce="{{ csp_nonce }}">
-function collectSettingsPayload() {
-    return {
-        settings: {
-            "scraping.timeout": Number(document.getElementById("scrapingTimeout").value),
-            "scraping.max_retries": Number(document.getElementById("scrapingRetries").value),
-            "scraping.max_content_bytes": Number(document.getElementById("maxContentBytes").value),
-            "summarization.default_method": document.getElementById("defaultMethod").value,
-            "summarization.default_length": document.getElementById("defaultLength").value,
-            "summarization.gemini_model_id": document.getElementById("geminiModelId").value.trim(),
-            "output.cache_enabled": document.getElementById("cacheEnabled").value === "true",
-            "output.cache_ttl": Number(document.getElementById("cacheTtl").value),
-            "rate_limit.submit.max_requests": Number(document.getElementById("submitMaxRequests").value),
-            "rate_limit.submit.window_seconds": Number(document.getElementById("submitWindowSeconds").value),
-            "rate_limit.auth.max_requests": Number(document.getElementById("authMaxRequests").value),
-            "rate_limit.auth.window_seconds": Number(document.getElementById("authWindowSeconds").value),
-            "rate_limit.polling.max_requests": Number(document.getElementById("pollingMaxRequests").value),
-            "rate_limit.polling.window_seconds": Number(document.getElementById("pollingWindowSeconds").value),
-            "rate_limit.admin.max_requests": Number(document.getElementById("adminMaxRequests").value),
-            "rate_limit.admin.window_seconds": Number(document.getElementById("adminWindowSeconds").value),
-        }
-    };
-}
-
-async function saveSettings() {
-    const response = await authFetch("/api/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(collectSettingsPayload()),
-    });
-    const data = await response.json();
-    if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to save settings.");
-    }
-    showAlert('<i class="bi bi-check-circle"></i> Configurações persistidas com sucesso.', 'success');
-}
-
-async function testSettings() {
-    const response = await authFetch("/api/settings/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-    });
-    const data = await response.json();
-    if (!response.ok || !data.success) {
-        throw new Error(data.error || "Configuration validation failed.");
-    }
-    showAlert('<i class="bi bi-check-circle"></i> Configuração validada com sucesso.', 'success');
-}
-
-async function clearCacheFromSettings() {
-    const response = await authFetch("/api/limpar-cache", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-    });
-    const data = await response.json();
-    if (!response.ok || !data.success) {
-        throw new Error(data.error || "Cache clear failed.");
-    }
-    showAlert('<i class="bi bi-check-circle"></i> Cache limpo com sucesso.', 'success');
-}
-
-document.getElementById("saveSettingsBtn").addEventListener("click", async () => {
-    try {
-        await saveSettings();
-    } catch (error) {
-        showAlert('<i class="bi bi-exclamation-triangle"></i> ' + error.message, 'danger');
-    }
-});
-
-document.getElementById("testSettingsBtn").addEventListener("click", async () => {
-    try {
-        await testSettings();
-    } catch (error) {
-        showAlert('<i class="bi bi-exclamation-triangle"></i> ' + error.message, 'danger');
-    }
-});
-
-document.getElementById("clearCacheBtn").addEventListener("click", async () => {
-    try {
-        await clearCacheFromSettings();
-    } catch (error) {
-        showAlert('<i class="bi bi-exclamation-triangle"></i> ' + error.message, 'danger');
-    }
-});
-</script>
+<script src="{{ url_for('static', filename='js/settings.js') }}" nonce="{{ csp_nonce }}"></script>
 {% endblock %}

@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { listHistory, getStats } from '../api/history'
+import { useAuth } from '../hooks/useAuth'
 import type { Task } from '../api/tasks'
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
@@ -159,15 +161,18 @@ function TaskRow({ task }: { task: Task }) {
 
 export default function HistoryPage() {
   const [page, setPage] = useState(1)
+  const { isAuthenticated } = useAuth()
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['history', page],
     queryFn: () => listHistory(page),
+    enabled: isAuthenticated,
   })
 
   const { data: stats } = useQuery({
     queryKey: ['stats'],
     queryFn: getStats,
+    enabled: isAuthenticated,
   })
 
   const { tasks = [], total_pages = 1, total = 0 } = data ?? {}
@@ -175,6 +180,29 @@ export default function HistoryPage() {
   const doneCount = stats?.done ?? 0
   const failedCount = (stats?.failed ?? 0) + (stats?.error ?? 0)
   const processingCount = (stats?.processing ?? 0) + (stats?.queued ?? 0)
+
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-[1200px] mx-auto px-6 py-10 flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <div className="size-16 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center mb-5">
+          <span className="material-symbols-outlined text-slate-400 text-[32px]">lock</span>
+        </div>
+        <h2 className="text-xl font-black text-slate-900 dark:text-white mb-2">
+          Acesso restrito
+        </h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+          Faça login para ver seu histórico de resumos.
+        </p>
+        <Link
+          to="/login"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:opacity-90 transition"
+        >
+          <span className="material-symbols-outlined text-[18px]">login</span>
+          Entrar
+        </Link>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-[1200px] mx-auto px-6 py-10">

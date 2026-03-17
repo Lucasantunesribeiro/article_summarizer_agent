@@ -1,129 +1,103 @@
 {% extends "base.html" %}
 
-{% block title %}Sobre - Article Summarizer Agent{% endblock %}
+{% block title %}Arquitetura - Article Summarizer Agent{% endblock %}
 
 {% block content %}
-<div class="row mb-5">
-    <div class="col-12">
-        <div class="hero-banner bg-gradient-info text-white rounded-3 p-5 text-center">
-            <h1 class="display-5 fw-bold mb-3">
-                <i class="bi bi-diagram-3"></i>
-                Sobre o Article Summarizer Agent
-            </h1>
-            <p class="lead mb-0">
-                Plataforma backend para extração e sumarização assíncrona de artigos públicos da web.
-            </p>
+<section class="page-header">
+    <div>
+        <p class="section-kicker">Project architecture</p>
+        <h1 class="page-title">How the system works in code, not in marketing slides.</h1>
+        <p class="page-copy">
+            This page reflects the current backend implementation: modular Flask application,
+            persisted settings, protected admin flow, asynchronous processing and generated artifacts.
+        </p>
+    </div>
+    <div class="page-header__actions">
+        <a href="{{ url_for('web.index') }}" class="btn app-button app-button--primary">Open pipeline</a>
+        <a href="{{ url_for('web.settings') }}" class="btn app-button app-button--ghost">Inspect operations</a>
+    </div>
+</section>
+
+<section class="capability-grid capability-grid--about">
+    <article class="surface-card capability-card">
+        <p class="section-kicker">System domain</p>
+        <h2>Asynchronous article extraction and summarization.</h2>
+        <p>
+            The application ingests public article URLs, extracts meaningful content, summarizes the
+            text through extractive or generative strategies and stores task history for later review.
+        </p>
+    </article>
+
+    <article class="surface-card capability-card capability-card--outline">
+        <p class="section-kicker">Architecture shape</p>
+        <h2>Modular monolith with layered boundaries.</h2>
+        <p>
+            Presentation routes live under Flask blueprints, application handlers orchestrate commands
+            and queries, domain entities capture business state, and infrastructure adapters integrate
+            database, auth, cache and the summarization pipeline.
+        </p>
+    </article>
+</section>
+
+<section class="architecture-grid">
+    <article class="surface-card architecture-card">
+        <span class="architecture-card__eyebrow">Presentation</span>
+        <h2>HTML and API entry points</h2>
+        <p>Flask blueprints expose web pages, REST endpoints and auth flows while CSP nonce and security headers are applied centrally.</p>
+    </article>
+    <article class="surface-card architecture-card">
+        <span class="architecture-card__eyebrow">Application</span>
+        <h2>Commands, queries and handlers</h2>
+        <p>Task submission, runtime settings updates, authentication and cache management are coordinated through explicit handler classes.</p>
+    </article>
+    <article class="surface-card architecture-card">
+        <span class="architecture-card__eyebrow">Domain</span>
+        <h2>Entities and events</h2>
+        <p>Tasks, users and audit log entries live in the domain layer while submission, completion and failure events drive async processing and audit trails.</p>
+    </article>
+    <article class="surface-card architecture-card">
+        <span class="architecture-card__eyebrow">Infrastructure</span>
+        <h2>Persistence and runtime services</h2>
+        <p>SQLAlchemy repositories, Alembic migrations, Redis-backed cache, Celery dispatching and JWT secret rotation complete the production-facing edge.</p>
+    </article>
+</section>
+
+<section class="surface-card flow-card">
+    <div class="panel-heading">
+        <div>
+            <p class="section-kicker">Runtime flow</p>
+            <h2>What happens after a user submits a URL</h2>
         </div>
     </div>
-</div>
-
-<div class="row g-4">
-    <div class="col-lg-8">
-        <div class="card shadow border-0 mb-4">
-            <div class="card-body p-4">
-                <h3 class="text-primary mb-3">
-                    <i class="bi bi-eye"></i> O que o sistema faz
-                </h3>
-                <p>
-                    O sistema recebe uma URL, executa um pipeline de scraping com proteção SSRF,
-                    processa o texto com NLTK/langdetect, gera um resumo por TF-IDF ou Google Gemini,
-                    persiste o histórico da tarefa e disponibiliza artefatos para download.
-                </p>
-                <p class="mb-0">
-                    A aplicação segue um desenho de monólito modular com separação entre domínio,
-                    aplicação, infraestrutura e apresentação, mantendo o pipeline de NLP desacoplado
-                    das rotas Flask.
-                </p>
+    <div class="hero-rail hero-rail--stacked">
+        <article class="hero-step">
+            <span class="hero-step__index">01</span>
+            <div>
+                <h2>API validation</h2>
+                <p>The request is normalized, rate limited and persisted as a task.</p>
             </div>
-        </div>
-
-        <div class="card shadow border-0 mb-4">
-            <div class="card-body p-4">
-                <h3 class="text-success mb-3">
-                    <i class="bi bi-layers"></i> Arquitetura implementada
-                </h3>
-                <div class="row">
-                    <div class="col-md-6">
-                        <ul class="list-unstyled mb-0">
-                            <li class="mb-2"><i class="bi bi-check-circle text-success"></i> Clean Architecture incremental</li>
-                            <li class="mb-2"><i class="bi bi-check-circle text-success"></i> CQRS com handlers de command/query</li>
-                            <li class="mb-2"><i class="bi bi-check-circle text-success"></i> Eventos de domínio para submissão e conclusão</li>
-                            <li class="mb-2"><i class="bi bi-check-circle text-success"></i> Persistência com SQLAlchemy + Alembic</li>
-                        </ul>
-                    </div>
-                    <div class="col-md-6">
-                        <ul class="list-unstyled mb-0">
-                            <li class="mb-2"><i class="bi bi-check-circle text-success"></i> Auth persistida com usuários e RBAC</li>
-                            <li class="mb-2"><i class="bi bi-check-circle text-success"></i> Cache coerente via backend compartilhado</li>
-                            <li class="mb-2"><i class="bi bi-check-circle text-success"></i> Observabilidade com health e Prometheus</li>
-                            <li class="mb-2"><i class="bi bi-check-circle text-success"></i> Execução assíncrona com Celery/Redis ou fallback local</li>
-                        </ul>
-                    </div>
-                </div>
+        </article>
+        <article class="hero-step">
+            <span class="hero-step__index">02</span>
+            <div>
+                <h2>Event dispatch</h2>
+                <p>A task submitted event dispatches asynchronous processing through Celery or local thread fallback.</p>
             </div>
-        </div>
-
-        <div class="card shadow border-0">
-            <div class="card-body p-4">
-                <h3 class="text-warning mb-3">
-                    <i class="bi bi-tools"></i> Stack real do projeto
-                </h3>
-                <div class="d-flex flex-wrap gap-2">
-                    <span class="badge bg-primary">Python</span>
-                    <span class="badge bg-info text-dark">Flask</span>
-                    <span class="badge bg-success">SQLAlchemy</span>
-                    <span class="badge bg-secondary">Alembic</span>
-                    <span class="badge bg-danger">PostgreSQL</span>
-                    <span class="badge bg-dark">Redis</span>
-                    <span class="badge bg-warning text-dark">Celery</span>
-                    <span class="badge bg-primary">scikit-learn</span>
-                    <span class="badge bg-success">NLTK</span>
-                    <span class="badge bg-info text-dark">Google Gemini</span>
-                    <span class="badge bg-secondary">Prometheus</span>
-                    <span class="badge bg-dark">Docker</span>
-                </div>
+        </article>
+        <article class="hero-step">
+            <span class="hero-step__index">03</span>
+            <div>
+                <h2>Pipeline execution</h2>
+                <p>Scraper, text processor, summarizer and file manager produce the final result and downloadable artifacts.</p>
             </div>
-        </div>
+        </article>
+        <article class="hero-step">
+            <span class="hero-step__index">04</span>
+            <div>
+                <h2>History and admin visibility</h2>
+                <p>The frontend reads task status, protected statistics, persisted settings and audit-backed admin actions from the real API.</p>
+            </div>
+        </article>
     </div>
-
-    <div class="col-lg-4">
-        <div class="card shadow border-0 mb-4">
-            <div class="card-header bg-primary text-white">
-                <h5 class="card-title mb-0"><i class="bi bi-shield-check"></i> Hardening</h5>
-            </div>
-            <div class="card-body">
-                <ul class="list-unstyled mb-0">
-                    <li class="mb-2">SSRF guard com bloqueio de redes privadas</li>
-                    <li class="mb-2">Rate limiting por perfil de rota</li>
-                    <li class="mb-2">JWT com CSRF para cookies</li>
-                    <li class="mb-2">Rotação de segredo com `kid`</li>
-                    <li class="mb-2">Audit log para eventos administrativos</li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="card shadow border-0 mb-4">
-            <div class="card-header bg-success text-white">
-                <h5 class="card-title mb-0"><i class="bi bi-arrow-repeat"></i> Fluxo assíncrono</h5>
-            </div>
-            <div class="card-body">
-                <ol class="mb-0">
-                    <li>URL submetida para API</li>
-                    <li>Tarefa persistida no banco</li>
-                    <li>Evento `TaskSubmitted` publicado</li>
-                    <li>Dispatcher envia para Celery/thread</li>
-                    <li>Pipeline processa e atualiza a tarefa</li>
-                </ol>
-            </div>
-        </div>
-
-        <div class="card shadow border-0">
-            <div class="card-body text-center">
-                <a href="{{ url_for('web.index') }}" class="btn btn-primary">
-                    <i class="bi bi-arrow-left"></i> Voltar ao Início
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
+</section>
 {% endblock %}
