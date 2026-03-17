@@ -64,6 +64,21 @@ services:
       - RABBITMQ_DEFAULT_PASS=guest
     restart: unless-stopped
 
+  beat:
+    build: .
+    command: celery -A celery_app beat --loglevel=info
+    env_file:
+      - .env
+    environment:
+      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+    volumes:
+      - ./outputs:/app/outputs
+    depends_on:
+      - redis
+      - postgres
+      - rabbitmq
+    restart: unless-stopped
+
   flower:
     image: mher/flower:2.0
     command: celery flower --broker=amqp://guest:guest@rabbitmq:5672// --port=5555
