@@ -1,13 +1,9 @@
 #!/usr/bin/env bash
-# Render build script — installs Python dependencies and runs migrations.
-# Chrome/Selenium are NOT supported on Render's free tier.
-# JS rendering falls back gracefully to plain HTTP when selenium is absent.
+# Render build script — installs Python dependencies, runs migrations, builds frontend.
 set -o errexit
 
 pip install -r requirements.txt
 python -m alembic upgrade head
 
-# Build frontend if Node is available
-if command -v npm &> /dev/null && [ -d "frontend" ]; then
-    cd frontend && npm ci && npm run build && cd ..
-fi
+# Build React SPA — required; deploy fails if this step fails
+cd frontend && npm ci && npm run build && cd ..
