@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from flask import Blueprint, current_app, redirect, send_file, url_for
+from flask import Blueprint, abort, current_app, redirect, send_file, send_from_directory, url_for
 from flask_jwt_extended import unset_jwt_cookies
 
 web_bp = Blueprint("web", __name__)
@@ -26,6 +26,17 @@ def index():
     return _serve_spa()
 
 
+@web_bp.get("/assets/<path:filename>")
+def dist_assets(filename: str):
+    """Serve Vite-built JS/CSS assets from static/dist/assets/.
+
+    Must be declared before the catch-all so Flask matches it first and
+    returns the correct MIME type instead of serving index.html.
+    """
+    dist_assets_dir = Path(current_app.static_folder) / "dist" / "assets"
+    return send_from_directory(str(dist_assets_dir), filename)
+
+
 @web_bp.get("/logout")
 def logout():
     """Clear JWT cookies and redirect to root (React handles the login page)."""
@@ -41,8 +52,6 @@ def react_fallback(path: str):
     API and auth prefixes are intentionally excluded — their 404s are
     handled by the errorhandler in app_factory.py which returns JSON.
     """
-    from flask import abort
-
     if path.startswith("api/") or path.startswith("auth/"):
         abort(404)
     return _serve_spa()
