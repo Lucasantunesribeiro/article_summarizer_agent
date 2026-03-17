@@ -1,164 +1,182 @@
 {% extends "base.html" %}
 
-{% block title %}Histórico - Article Summarizer Agent{% endblock %}
+{% block title %}Historico - Article Summarizer Agent{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center">
-            <h2 class="text-primary">
-                <i class="bi bi-clock-history"></i>
-                Histórico de Tarefas
-            </h2>
-            <div>
-                <button onclick="clearHistory()" class="btn btn-outline-danger">
-                    <i class="bi bi-trash"></i> Limpar Histórico
-                </button>
-                <a href="{{ url_for('web.index') }}" class="btn btn-primary">
-                    <i class="bi bi-plus-circle"></i> Nova Sumarização
-                </a>
-            </div>
-        </div>
+<section class="page-header">
+    <div>
+        <p class="section-kicker">Protected execution log</p>
+        <h1 class="page-title">Task history and delivery artifacts</h1>
+        <p class="page-copy">
+            Review completed and failed jobs, inspect compression metrics and reopen the generated files
+            exported by the pipeline.
+        </p>
     </div>
-</div>
+    <div class="page-header__actions">
+        <a href="{{ url_for('web.index') }}" class="btn app-button app-button--primary">
+            New summarization
+        </a>
+        <a href="{{ url_for('web.settings') }}" class="btn app-button app-button--ghost">
+            Runtime settings
+        </a>
+    </div>
+</section>
+
+<section class="stats-strip" id="historyStats">
+    <article class="status-card">
+        <span class="status-card__label">Total tasks</span>
+        <strong id="historyTotal">{{ total }}</strong>
+    </article>
+    <article class="status-card">
+        <span class="status-card__label">Done</span>
+        <strong id="historyDone">-</strong>
+    </article>
+    <article class="status-card">
+        <span class="status-card__label">Failed</span>
+        <strong id="historyFailed">-</strong>
+    </article>
+    <article class="status-card">
+        <span class="status-card__label">Running</span>
+        <strong id="historyRunning">-</strong>
+    </article>
+</section>
 
 {% if tasks %}
-<div class="row">
+<section class="surface-card toolbar-card">
+    <div class="toolbar-card__group">
+        <label class="form-label" for="historyStatusFilter">Filter current page</label>
+        <select class="form-select app-select" id="historyStatusFilter">
+            <option value="all">All statuses</option>
+            <option value="done">Done</option>
+            <option value="failed">Failed</option>
+            <option value="error">Error</option>
+        </select>
+    </div>
+    <div class="toolbar-card__meta">
+        Showing {{ tasks|length }} tasks on page {{ page }} of {{ total_pages }}
+    </div>
+</section>
+
+<section class="history-list" id="historyList">
     {% for task in tasks %}
-    <div class="col-12 mb-4">
-        <div class="card shadow border-0">
-            <div class="card-header bg-{{ 'success' if task.status == 'done' else 'danger' if task.status == 'failed' else 'warning' }} text-white">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">
-                        <i class="bi bi-{{ 'check-circle' if task.status == 'done' else 'x-circle' if task.status == 'failed' else 'hourglass-split' }}"></i>
-                        Tarefa {{ task.task_id[:8] }}...
-                    </h5>
-                    <small>{{ task.created_at }}</small>
-                </div>
+    <article class="surface-card history-card" data-status="{{ task.status }}">
+        <div class="history-card__head">
+            <div>
+                <span class="status-pill status-pill--{{ 'success' if task.status == 'done' else 'danger' if task.status in ('failed', 'error') else 'accent' }}">
+                    {{ task.status }}
+                </span>
+                <h2>Task {{ task.id[:8] }}</h2>
+                <p class="history-card__url">{{ task.url }}</p>
             </div>
-            
-            <div class="card-body">
-                {% if task.status == 'done' and task.result %}
-                <div class="row">
-                    <div class="col-md-8">
-                        <h6 class="text-primary">Resumo:</h6>
-                        <p class="text-muted">
-                            {{ task.result.summary[:200] }}{% if task.result.summary|length > 200 %}...{% endif %}
-                        </p>
-                    </div>
-                    
-                    <div class="col-md-4">
-                        <h6 class="text-info">Estatísticas:</h6>
-                        <ul class="list-unstyled">
-                            <li><strong>Método:</strong> {{ task.result.method_used }}</li>
-                            <li><strong>Tempo:</strong> {{ "%.1f"|format(task.result.execution_time) }}s</li>
-                            {% if task.result.statistics %}
-                            <li><strong>Palavras:</strong> {{ task.result.statistics.words_summary }}/{{ task.result.statistics.words_original }}</li>
-                            {% endif %}
-                        </ul>
-                    </div>
-                </div>
-                
-                {% if task.result.files_created %}
-                <div class="mt-3">
-                    <h6 class="text-success">Downloads Disponíveis:</h6>
-                    <div class="d-flex gap-2">
-                        {% for format, file_path in task.result.files_created.items() %}
-                        <a href="/api/download/{{ task.task_id }}/{{ format }}" class="btn btn-outline-primary btn-sm">
-                            <i class="bi bi-download"></i> {{ format.upper() }}
-                        </a>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
-                
-                {% elif task.status == 'failed' %}
-                <div class="alert alert-danger" role="alert">
-                    <i class="bi bi-exclamation-triangle"></i>
-                    <strong>Falha no processamento:</strong> {{ task.message }}
-                </div>
-                
-                {% else %}
-                <div class="alert alert-warning" role="alert">
-                    <i class="bi bi-hourglass-split"></i>
-                    <strong>Status:</strong> {{ task.message }}
-                </div>
+            <div class="history-card__timestamps">
+                <span>Created {{ task.created_at }}</span>
+                {% if task.finished_at %}
+                <span>Finished {{ task.finished_at }}</span>
                 {% endif %}
             </div>
         </div>
+
+        <div class="history-card__body">
+            <div class="history-card__summary">
+                {% if task.status == 'done' and task.result %}
+                <p class="history-card__text">
+                    {{ task.result.summary[:420] }}{% if task.result.summary|length > 420 %}...{% endif %}
+                </p>
+                {% else %}
+                <p class="history-card__text history-card__text--muted">
+                    {{ task.error or task.message or 'No summary output was generated for this task.' }}
+                </p>
+                {% endif %}
+            </div>
+
+            <aside class="history-card__rail">
+                <div class="history-card__metric">
+                    <span>Method</span>
+                    <strong>{{ task.result.method_used if task.status == 'done' and task.result else task.method }}</strong>
+                </div>
+                <div class="history-card__metric">
+                    <span>Execution</span>
+                    <strong>
+                        {% if task.status == 'done' and task.result %}
+                        {{ "%.1f"|format(task.result.execution_time) }}s
+                        {% else %}
+                        -
+                        {% endif %}
+                    </strong>
+                </div>
+                <div class="history-card__metric">
+                    <span>Words</span>
+                    <strong>
+                        {% if task.status == 'done' and task.result and task.result.statistics %}
+                        {{ task.result.statistics.words_summary }}/{{ task.result.statistics.words_original }}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </strong>
+                </div>
+
+                {% if task.status == 'done' and task.result and task.result.files_created %}
+                <div class="download-grid download-grid--compact">
+                    {% for fmt, file_path in task.result.files_created.items() %}
+                    <a href="/api/download/{{ task.id }}/{{ fmt }}" class="btn app-button app-button--ghost">
+                        {{ fmt.upper() }}
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </aside>
+        </div>
+    </article>
+    {% endfor %}
+</section>
+
+{% if total_pages > 1 %}
+<nav class="pagination-shell" aria-label="Task history pagination">
+    <a class="btn app-button app-button--ghost {% if page == 1 %}disabled{% endif %}"
+        href="?page={{ page - 1 }}&per_page={{ per_page }}">
+        Previous
+    </a>
+    <div class="pagination-shell__pages">
+        {% for p in range(1, total_pages + 1) %}
+        {% if p == page or p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+        <a class="pagination-shell__page {% if p == page %}is-active{% endif %}"
+            href="?page={{ p }}&per_page={{ per_page }}">
+            {{ p }}
+        </a>
+        {% elif p == page - 3 or p == page + 3 %}
+        <span class="pagination-shell__ellipsis">...</span>
+        {% endif %}
+        {% endfor %}
     </div>
+    <a class="btn app-button app-button--ghost {% if page == total_pages %}disabled{% endif %}"
+        href="?page={{ page + 1 }}&per_page={{ per_page }}">
+        Next
+    </a>
+</nav>
+
+<div class="page-size-switcher">
+    <span>Rows per page</span>
+    {% for n in [10, 20, 50] %}
+    <a href="?page=1&per_page={{ n }}" class="page-size-switcher__item {% if per_page == n %}is-active{% endif %}">
+        {{ n }}
+    </a>
     {% endfor %}
 </div>
-
-<!-- Pagination -->
-<div class="row mt-4">
-    <div class="col-12">
-        {% if total_pages > 1 %}
-        <nav aria-label="Paginação">
-            <ul class="pagination justify-content-center">
-                <li class="page-item {% if page == 1 %}disabled{% endif %}">
-                    <a class="page-link" href="?page={{ page - 1 }}&per_page={{ per_page }}">
-                        <i class="bi bi-chevron-left"></i> Anterior
-                    </a>
-                </li>
-                {% for p in range(1, total_pages + 1) %}
-                {% if p == page or p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
-                <li class="page-item {% if p == page %}active{% endif %}">
-                    <a class="page-link" href="?page={{ p }}&per_page={{ per_page }}">{{ p }}</a>
-                </li>
-                {% elif p == page - 3 or p == page + 3 %}
-                <li class="page-item disabled"><span class="page-link">…</span></li>
-                {% endif %}
-                {% endfor %}
-                <li class="page-item {% if page == total_pages %}disabled{% endif %}">
-                    <a class="page-link" href="?page={{ page + 1 }}&per_page={{ per_page }}">
-                        Próxima <i class="bi bi-chevron-right"></i>
-                    </a>
-                </li>
-            </ul>
-        </nav>
-        {% endif %}
-
-        <div class="d-flex justify-content-center align-items-center gap-3 mt-2">
-            <small class="text-muted">
-                Mostrando {{ tasks|length }} de {{ total }} tarefas (página {{ page }} de {{ total_pages }})
-            </small>
-            <div class="d-flex align-items-center gap-1">
-                <small class="text-muted">Por página:</small>
-                {% for n in [10, 20, 50] %}
-                <a href="?page=1&per_page={{ n }}"
-                   class="btn btn-sm {% if per_page == n %}btn-primary{% else %}btn-outline-secondary{% endif %} py-0">
-                    {{ n }}
-                </a>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-</div>
-
+{% endif %}
 {% else %}
-<div class="row">
-    <div class="col-12">
-        <div class="text-center py-5">
-            <i class="bi bi-inbox display-1 text-muted"></i>
-            <h3 class="text-muted mt-3">Nenhuma tarefa encontrada</h3>
-            <p class="text-muted">Você ainda não processou nenhum artigo.</p>
-            <a href="{{ url_for('web.index') }}" class="btn btn-primary">
-                <i class="bi bi-plus-circle"></i> Criar Primeira Sumarização
-            </a>
-        </div>
-    </div>
-</div>
+<section class="surface-card empty-state">
+    <p class="section-kicker">No completed runs yet</p>
+    <h2>Create the first task to populate this ledger.</h2>
+    <p>
+        The history page will store successful and failed runs once the pipeline finishes processing.
+    </p>
+    <a href="{{ url_for('web.index') }}" class="btn app-button app-button--primary">
+        Start first summarization
+    </a>
+</section>
 {% endif %}
 {% endblock %}
 
 {% block scripts %}
-<script nonce="{{ csp_nonce }}">
-function clearHistory() {
-    if (confirm('Tem certeza que deseja limpar todo o histórico?')) {
-        // This would need backend implementation
-        showAlert('<i class="bi bi-info-circle"></i> Funcionalidade em desenvolvimento', 'info');
-    }
-}
-</script>
-{% endblock %} 
+<script src="{{ url_for('static', filename='js/history.js') }}" nonce="{{ csp_nonce }}"></script>
+{% endblock %}
