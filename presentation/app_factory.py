@@ -127,7 +127,6 @@ def create_app() -> Flask:
 
     @app.after_request
     def _add_security_headers(response):
-        nonce = getattr(g, "csp_nonce", "")
         response.headers["X-Request-ID"] = getattr(g, "request_id", "")
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
