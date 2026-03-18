@@ -376,20 +376,41 @@ class WebScraper:
         return content_data
 
     def _extract_pdf_content(self, pdf_bytes: bytes, url: str) -> dict:
-        """Extract plain text from PDF binary content using pypdf."""
+        """Extract plain text from PDF binary content.
+
+        Strategy:
+        1. pypdf (fast, works for most text-layer PDFs)
+        2. pdfplumber fallback (better for multi-column/complex layouts)
+        3. If both fail on a non-empty PDF → raise informative ValueError
+        """
         try:
             import io
 
             import pypdf  # noqa: PLC0415
 
             reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+            num_pages = len(reader.pages)
+
+            # --- Step 1: pypdf ---
             pages_text = []
             for page in reader.pages:
                 text = page.extract_text() or ""
                 if text.strip():
                     pages_text.append(text)
-
             content = "\n\n".join(pages_text).strip()
+
+            # --- Step 2: pdfplumber fallback ---
+            if len(content) < 100 and num_pages > 0:
+                logger.info("pypdf yielded thin content (%d chars) — trying pdfplumber", len(content))
+                content = self._try_pdfplumber(pdf_bytes)
+
+            # --- Step 3: Scanned PDF — raise user-friendly error ---
+            if not content and num_pages > 0:
+                raise ValueError(
+                    f"O PDF possui {num_pages} página(s) mas não contém texto extraível. "
+                    "Provavelmente é um documento digitalizado (imagem). "
+                    "Tente um PDF com texto selecionável ou copie o conteúdo para um arquivo .txt."
+                )
 
             meta = reader.metadata or {}
             title = (meta.get("/Title") or "").strip() or url.rstrip("/").split("/")[-1]
@@ -402,8 +423,10 @@ class WebScraper:
                 "description": "",
                 "content": content,
                 "word_count": len(content.split()) if content else 0,
-                "extraction_method": "pdf_pypdf",
+                "extraction_method": "pdf_pypdf" if pages_text else "pdf_pdfplumber",
             }
+        except ValueError:
+            raise  # propagate user-friendly errors to the pipeline
         except Exception as exc:
             logger.warning("PDF extraction failed for %s: %s", url, exc)
             return {
@@ -415,6 +438,24 @@ class WebScraper:
                 "word_count": 0,
                 "extraction_method": "pdf_failed",
             }
+
+    def _try_pdfplumber(self, pdf_bytes: bytes) -> str:
+        """Secondary PDF text extractor using pdfplumber (better for complex layouts)."""
+        try:
+            import io
+
+            import pdfplumber  # noqa: PLC0415
+
+            with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+                pages_text = []
+                for page in pdf.pages:
+                    text = page.extract_text() or ""
+                    if text.strip():
+                        pages_text.append(text)
+                return "\n\n".join(pages_text).strip()
+        except Exception as exc:
+            logger.debug("pdfplumber extraction failed: %s", exc)
+            return ""
 
     def _extract_docx_content(self, docx_bytes: bytes, url: str) -> dict:
         """Extract plain text from a .docx file using python-docx."""
