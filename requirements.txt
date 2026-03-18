@@ -42,6 +42,10 @@ opentelemetry-instrumentation-sqlalchemy>=0.45b0
 opentelemetry-instrumentation-celery>=0.45b0
 opentelemetry-exporter-otlp-proto-grpc>=1.24.0
 
+# Article extraction
+trafilatura>=1.12.0
+newspaper4k>=0.9.3
+
 # Resilience
 tenacity>=8.2.0
 
