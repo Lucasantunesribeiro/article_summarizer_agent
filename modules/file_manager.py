@@ -12,6 +12,9 @@ from pathlib import Path
 
 from config import SUPPORTED_FORMATS, config
 from modules.cache import CacheBackend, create_cache_backend
+from modules.url_utils import canonicalize_url
+
+_CACHE_KEY_VERSION = "v2"
 
 
 class FileManager:
@@ -325,7 +328,8 @@ class FileManager:
 
     def _get_cache_key(self, url: str) -> str:
         """Generate cache key for URL"""
-        return hashlib.md5(url.encode()).hexdigest()
+        cache_identity = f"{_CACHE_KEY_VERSION}:{canonicalize_url(url)}"
+        return hashlib.md5(cache_identity.encode()).hexdigest()
 
     def clear_cache(self):
         """Clear all cached files"""

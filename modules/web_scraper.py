@@ -23,10 +23,13 @@ from __future__ import annotations
 
 import hashlib
 import ipaddress
+import json
 import logging
 import random
+import re
 import socket
 import time
+from html import unescape as html_unescape
 from urllib.parse import urlparse
 
 import chardet
@@ -43,6 +46,7 @@ from urllib3.util.retry import Retry
 
 from config import CONTENT_SELECTORS, UNWANTED_SELECTORS, config
 from modules.circuit_breaker import CircuitOpenError, circuit_breaker
+from modules.url_utils import canonicalize_url
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +58,26 @@ _BLOCKED_NETWORKS = [ipaddress.ip_network(cidr) for cidr in config.scraping.bloc
 
 _BLOCKED_HOSTNAMES = frozenset({"localhost"})
 _BLOCKED_SUFFIXES = (".local", ".internal", ".localhost", ".corp", ".home.arpa")
+_NEXTJS_PUSH_RE = re.compile(
+    r"self\.__next_f\.push\(\[1,(\"(?:\\.|[^\"\\])*\")\]\)",
+    re.DOTALL,
+)
+_NEXTJS_SKIP_MARKERS = (
+    "assetPrefix",
+    "buildId",
+    "dangerouslySetInnerHTML",
+    "dataLayer",
+    "gtm.js",
+    "initialSeedData",
+    "initialTree",
+    "parallelRouterKey",
+    "static/chunks/",
+)
+_NEXTJS_NOISE_RE = (
+    re.compile(r"\b[0-9a-z]+:I\[[^\n]+"),
+    re.compile(r"\b[0-9a-z]+:T\d+,"),
+    re.compile(r"\b[0-9a-z]+:E\{[^}]+\}"),
+)
 
 
 def _check_ssrf(url: str) -> None:
@@ -131,13 +155,16 @@ class WebScraper:
         Raises ValueError for SSRF-blocked URLs.
         Raises requests.HTTPError / requests.RequestException on HTTP failures.
         """
+        source_url = url
+        canonical_url = canonicalize_url(url)
+
         # 1. SSRF guard (always first)
-        _check_ssrf(url)
+        _check_ssrf(canonical_url)
 
         # 2. Memory cache (within this process lifetime)
-        url_hash = hashlib.md5(url.encode()).hexdigest()
+        url_hash = hashlib.md5(canonical_url.encode()).hexdigest()
         if url_hash in self._mem_cache:
-            logger.debug("Returning in-process cached content for %s", url)
+            logger.debug("Returning in-process cached content for %s", source_url)
             return self._mem_cache[url_hash]
 
         # 3. Rotate user-agent on each request
@@ -146,34 +173,36 @@ class WebScraper:
 
         # 4. Fetch with retries — fall back to Wayback Machine on 403
         try:
-            response = self._fetch(url, headers)
+            response = self._fetch(canonical_url, headers)
         except requests.HTTPError as http_exc:
             if http_exc.response is not None and http_exc.response.status_code == 403:
-                logger.warning("403 Forbidden for %s — trying Wayback Machine fallback", url)
-                return self._scrape_via_wayback(url)
+                logger.warning(
+                    "403 Forbidden for %s — trying Wayback Machine fallback", source_url
+                )
+                return self._scrape_via_wayback(canonical_url, original_url=source_url)
             raise
 
         # 5. Binary format early-exit — bypass HTML pipeline entirely
         content_type = response.headers.get("Content-Type", "").lower()
-        url_path = url.lower().split("?")[0]
+        url_path = canonical_url.lower().split("?")[0]
 
         is_pdf = "application/pdf" in content_type or url_path.endswith(".pdf")
         is_docx = "officedocument.wordprocessingml" in content_type or url_path.endswith(".docx")
         is_txt = content_type.startswith("text/plain") or url_path.endswith(".txt")
 
         if is_pdf:
-            content_data = self._extract_pdf_content(response._content, url)
+            content_data = self._extract_pdf_content(response._content, canonical_url)
         elif is_docx:
-            content_data = self._extract_docx_content(response._content, url)
+            content_data = self._extract_docx_content(response._content, canonical_url)
         elif is_txt:
-            content_data = self._extract_txt_content(response._content, url)
+            content_data = self._extract_txt_content(response._content, canonical_url)
         else:
             content_data = None
 
         if content_data is not None:
             content_data.update(
                 {
-                    "url": url,
+                    "url": source_url,
                     "status_code": response.status_code,
                     "encoding": "binary",
                     "scraped_at": time.time(),
@@ -194,11 +223,11 @@ class WebScraper:
 
         # 7. Parse and extract
         soup = BeautifulSoup(response.text, "html.parser")
-        content_data = self._extract_content(soup, url)
+        content_data = self._extract_content(soup, canonical_url)
 
         content_data.update(
             {
-                "url": url,
+                "url": source_url,
                 "status_code": response.status_code,
                 "encoding": encoding,
                 "scraped_at": time.time(),
@@ -210,10 +239,10 @@ class WebScraper:
             logger.info(
                 "Thin content (%d words) from %s — trying Wayback Machine",
                 content_data.get("word_count", 0),
-                url,
+                source_url,
             )
             try:
-                return self._scrape_via_wayback(url)
+                return self._scrape_via_wayback(canonical_url, original_url=source_url)
             except Exception as wb_exc:
                 logger.warning("Wayback fallback also failed: %s — using thin content", wb_exc)
 
@@ -314,13 +343,15 @@ class WebScraper:
             circuit_breaker.record_failure(hostname)
             raise
 
-    def _scrape_via_wayback(self, url: str) -> dict:
+    def _scrape_via_wayback(self, url: str, original_url: str | None = None) -> dict:
         """Fetch article from Wayback Machine when direct access is blocked (403).
 
         Queries the Wayback availability API, retrieves the most recent snapshot,
         and extracts content using the same pipeline as a direct fetch.
         """
-        availability_url = f"https://archive.org/wayback/available?url={url}"
+        canonical_url = canonicalize_url(url)
+        display_url = original_url or url
+        availability_url = f"https://archive.org/wayback/available?url={canonical_url}"
         try:
             api_resp = requests.get(
                 availability_url,
@@ -333,12 +364,12 @@ class WebScraper:
         except Exception as exc:
             raise ValueError(
                 f"Cannot reach Wayback Machine API: {exc}. "
-                f"The site {url!r} returned 403 and no cached copy is available."
+                f"The site {display_url!r} returned 403 and no cached copy is available."
             ) from exc
 
         if not snapshot.get("available"):
             raise ValueError(
-                f"Não foi possível acessar '{url}': o site retornou 403 (acesso negado) "
+                f"Não foi possível acessar '{display_url}': o site retornou 403 (acesso negado) "
                 "e não há cópia no Wayback Machine. "
                 "Tente outro URL ou use o método Generativo (Gemini) que pode ter "
                 "acesso a este conteúdo via conhecimento prévio."
@@ -356,10 +387,10 @@ class WebScraper:
         snap_resp.raise_for_status()
 
         soup = BeautifulSoup(snap_resp.text, "html.parser")
-        content_data = self._extract_content(soup, url)
+        content_data = self._extract_content(soup, canonical_url)
         content_data.update(
             {
-                "url": url,
+                "url": display_url,
                 "status_code": snap_resp.status_code,
                 "encoding": self._detect_encoding(snap_resp),
                 "scraped_at": time.time(),
@@ -367,11 +398,11 @@ class WebScraper:
             }
         )
 
-        self._mem_cache[hashlib.md5(url.encode()).hexdigest()] = content_data
+        self._mem_cache[hashlib.md5(canonical_url.encode()).hexdigest()] = content_data
         logger.info(
             "Wayback scrape complete — %d words for %r",
             content_data.get("word_count", 0),
-            url,
+            display_url,
         )
         return content_data
 
@@ -547,11 +578,16 @@ class WebScraper:
 
     def _extract_content(self, soup: BeautifulSoup, url: str) -> dict:
         """Try multiple extraction strategies from most to least specific."""
+        nextjs_content = self._extract_nextjs_payload_content(soup)
         self._remove_unwanted_elements(soup)
         html = str(soup)
 
         content = self._extract_semantic_content(soup)
         method = "semantic_selectors"
+
+        if not content or len(content.strip()) < 100:
+            content = nextjs_content
+            method = "nextjs_inline_payload"
 
         if not content or len(content.strip()) < 100:
             content = self._extract_with_trafilatura(html)
@@ -578,6 +614,62 @@ class WebScraper:
             "word_count": len(content.split()) if content else 0,
             "extraction_method": method,
         }
+
+    def _extract_nextjs_payload_content(self, soup: BeautifulSoup) -> str:
+        blocks = []
+        for script in soup.find_all("script"):
+            script_text = script.get_text() or ""
+            if "self.__next_f.push" not in script_text:
+                continue
+
+            for match in _NEXTJS_PUSH_RE.finditer(script_text):
+                try:
+                    decoded = json.loads(match.group(1))
+                except json.JSONDecodeError:
+                    continue
+
+                if any(marker in decoded for marker in _NEXTJS_SKIP_MARKERS):
+                    continue
+
+                cleaned = self._clean_nextjs_chunk(decoded)
+                if self._looks_like_natural_language(cleaned):
+                    blocks.append(cleaned)
+
+        if not blocks:
+            return ""
+
+        return "\n\n".join(dict.fromkeys(blocks))
+
+    def _clean_nextjs_chunk(self, chunk: str) -> str:
+        text = html_unescape(chunk)
+        for pattern in _NEXTJS_NOISE_RE:
+            text = pattern.sub(" ", text)
+        text = BeautifulSoup(text, "html.parser").get_text("\n", strip=True)
+        text = re.sub(r"[ \t]+", " ", text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        text = re.sub(r" *\n *", "\n", text)
+        return text.strip()
+
+    def _looks_like_natural_language(self, text: str) -> bool:
+        if len(text) < 120:
+            return False
+
+        if text.count(".js") > 1:
+            return False
+
+        structural_chars = sum(text.count(char) for char in '{}[]"$')
+        if structural_chars / max(len(text), 1) > 0.04:
+            return False
+
+        if text.count('":') > 3 or text.count("$L") > 0 or '["$' in text:
+            return False
+
+        letters = sum(char.isalpha() for char in text)
+        if letters / max(len(text), 1) < 0.55:
+            return False
+
+        words = re.findall(r"\b[\wÀ-ÿ-]{3,}\b", text)
+        return len(words) >= 25
 
     def _extract_with_trafilatura(self, html: str) -> str:
         try:
