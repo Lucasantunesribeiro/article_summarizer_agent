@@ -30,6 +30,11 @@ class AdminBootstrapper:
 
         existing = self._user_repository.get_by_username(username)
         if existing:
+            # Update password if the seed credential has changed
+            if not self._password_service.verify_password(password, existing.password_hash):
+                existing.password_hash = self._password_service.hash_password(password)
+                existing.updated_at = datetime.utcnow()
+                self._user_repository.update(existing)
             return existing
 
         user = User(
