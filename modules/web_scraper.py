@@ -153,11 +153,34 @@ class WebScraper:
                 return self._scrape_via_wayback(url)
             raise
 
-        # 5. Detect encoding
+        # 5. PDF early-exit — bypass HTML pipeline entirely
+        content_type = response.headers.get("Content-Type", "").lower()
+        is_pdf = "application/pdf" in content_type or url.lower().split("?")[0].endswith(".pdf")
+
+        if is_pdf:
+            content_data = self._extract_pdf_content(response._content, url)
+            content_data.update(
+                {
+                    "url": url,
+                    "status_code": response.status_code,
+                    "encoding": "binary",
+                    "scraped_at": time.time(),
+                }
+            )
+            self._mem_cache[url_hash] = content_data
+            logger.info(
+                "PDF scraped %r — %d words via %s",
+                content_data.get("title", "?"),
+                content_data.get("word_count", 0),
+                content_data.get("extraction_method", "?"),
+            )
+            return content_data
+
+        # 6. Detect encoding
         encoding = self._detect_encoding(response)
         response.encoding = encoding
 
-        # 6. Parse and extract
+        # 7. Parse and extract
         soup = BeautifulSoup(response.text, "html.parser")
         content_data = self._extract_content(soup, url)
 
@@ -170,7 +193,7 @@ class WebScraper:
             }
         )
 
-        # 7. If content is suspiciously thin (JS-rendered SPA), try Wayback Machine
+        # 8. If content is suspiciously thin (JS-rendered SPA), try Wayback Machine
         if content_data.get("word_count", 0) < 80:
             logger.info(
                 "Thin content (%d words) from %s — trying Wayback Machine",
@@ -339,6 +362,47 @@ class WebScraper:
             url,
         )
         return content_data
+
+    def _extract_pdf_content(self, pdf_bytes: bytes, url: str) -> dict:
+        """Extract plain text from PDF binary content using pypdf."""
+        try:
+            import io
+
+            import pypdf  # noqa: PLC0415
+
+            reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+            pages_text = []
+            for page in reader.pages:
+                text = page.extract_text() or ""
+                if text.strip():
+                    pages_text.append(text)
+
+            content = "\n\n".join(pages_text).strip()
+
+            meta = reader.metadata or {}
+            title = (meta.get("/Title") or "").strip() or url.rstrip("/").split("/")[-1]
+            author = (meta.get("/Author") or "").strip() or "Unknown Author"
+
+            return {
+                "title": title,
+                "author": author,
+                "publish_date": "Unknown Date",
+                "description": "",
+                "content": content,
+                "word_count": len(content.split()) if content else 0,
+                "extraction_method": "pdf_pypdf",
+            }
+        except Exception as exc:
+            logger.warning("PDF extraction failed for %s: %s", url, exc)
+            return {
+                "title": url.rstrip("/").split("/")[-1],
+                "author": "Unknown Author",
+                "publish_date": "Unknown Date",
+                "description": "",
+                "content": "",
+                "word_count": 0,
+                "extraction_method": "pdf_failed",
+            }
 
     def _detect_encoding(self, response: requests.Response) -> str:
         enc = response.encoding
