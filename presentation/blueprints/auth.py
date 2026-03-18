@@ -83,7 +83,7 @@ def api_register():
         id=str(uuid4()),
         username=username,
         password_hash=container.password_service.hash_password(password),
-        role=UserRole.USER,
+        role=UserRole.VIEWER,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
