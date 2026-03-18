@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from modules.file_manager import FileManager
 from modules.rate_limiter import InMemoryRateLimiter
+from modules.url_utils import canonicalize_url
 from presentation.blueprints.api import _normalise_url
 from presentation.blueprints.helpers import validate_download_path
 
@@ -21,6 +23,23 @@ class TestNormaliseUrl:
 
     def test_trims_whitespace(self):
         assert _normalise_url("  example.com/path  ") == "https://example.com/path"
+
+
+class TestCanonicalizeUrl:
+    def test_removes_tracking_params_and_fragment(self):
+        url = (
+            "https://www.estacio.br/blog/aluno/o-que-e-um-artigo-cientifico"
+            "?srsltid=abc&utm_source=google&fbclid=xyz&page=2#section"
+        )
+
+        assert canonicalize_url(url) == (
+            "https://www.estacio.br/blog/aluno/o-que-e-um-artigo-cientifico?page=2"
+        )
+
+    def test_preserves_functional_query_params(self):
+        url = "https://example.com/search?q=python&lang=pt-BR"
+
+        assert canonicalize_url(url) == "https://example.com/search?q=python&lang=pt-BR"
 
 
 class TestRateLimit:
@@ -57,3 +76,22 @@ class TestValidateDownloadPath:
 
         resolved = validate_download_path(str(file_path))
         assert resolved == Path(file_path).resolve()
+
+
+class TestFileManagerCacheKey:
+    def test_tracking_variants_share_the_same_cache_key(self, monkeypatch, tmp_path):
+        from config import config
+
+        monkeypatch.setattr(config.output, "output_dir", str(tmp_path / "outputs"))
+        monkeypatch.setattr(config.output, "cache_dir", str(tmp_path / ".cache"))
+
+        file_manager = FileManager()
+        canonical_url = "https://www.estacio.br/blog/aluno/o-que-e-um-artigo-cientifico"
+        tracked_url = (
+            canonical_url
+            + "?srsltid=abc&utm_source=google&utm_campaign=spring&fbclid=xyz123"
+        )
+
+        assert file_manager._get_cache_key(canonical_url) == file_manager._get_cache_key(
+            tracked_url
+        )
