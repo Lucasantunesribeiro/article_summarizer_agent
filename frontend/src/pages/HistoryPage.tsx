@@ -131,7 +131,7 @@ function TaskRow({ task }: { task: Task }) {
   return (
     <tr className="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
       {/* ID */}
-      <td className="px-4 py-3.5">
+      <td className="px-4 py-3.5 hidden sm:table-cell">
         <span className="font-mono text-xs text-primary bg-primary/5 px-2 py-1 rounded-lg">
           {shortId}
         </span>
@@ -150,7 +150,7 @@ function TaskRow({ task }: { task: Task }) {
         <StatusBadge status={task.status} />
       </td>
       {/* Date */}
-      <td className="px-4 py-3.5 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+      <td className="px-4 py-3.5 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap hidden sm:table-cell">
         {date}
       </td>
     </tr>
@@ -278,10 +278,10 @@ export default function HistoryPage() {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-800/80 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  <th className="px-4 py-3 w-24">ID</th>
+                  <th className="px-4 py-3 w-24 hidden sm:table-cell">ID</th>
                   <th className="px-4 py-3">URL</th>
                   <th className="px-4 py-3 w-32">Status</th>
-                  <th className="px-4 py-3 w-40">Data/Hora</th>
+                  <th className="px-4 py-3 w-40 hidden sm:table-cell">Data/Hora</th>
                 </tr>
               </thead>
               <tbody>
