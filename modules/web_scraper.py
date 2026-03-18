@@ -1,6 +1,6 @@
 """
 Web Scraper Module — Robust Public Content Extraction
-=====================================================
+======================================================
 
 Fetches publicly accessible web articles using standard HTTP.
 
