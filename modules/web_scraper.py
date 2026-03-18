@@ -303,8 +303,10 @@ class WebScraper:
 
         if not snapshot.get("available"):
             raise ValueError(
-                f"Site returned 403 and no Wayback Machine snapshot exists for {url!r}. "
-                "Try a different URL or check if the article is publicly accessible."
+                f"Não foi possível acessar '{url}': o site retornou 403 (acesso negado) "
+                "e não há cópia no Wayback Machine. "
+                "Tente outro URL ou use o método Generativo (Gemini) que pode ter "
+                "acesso a este conteúdo via conhecimento prévio."
             )
 
         snapshot_url = snapshot["url"]
@@ -350,9 +352,14 @@ class WebScraper:
     def _extract_content(self, soup: BeautifulSoup, url: str) -> dict:
         """Try multiple extraction strategies from most to least specific."""
         self._remove_unwanted_elements(soup)
+        html = str(soup)
 
         content = self._extract_semantic_content(soup)
         method = "semantic_selectors"
+
+        if not content or len(content.strip()) < 100:
+            content = self._extract_with_trafilatura(html)
+            method = "trafilatura"
 
         if not content or len(content.strip()) < 100:
             content = self._extract_paragraph_content(soup)
@@ -360,7 +367,7 @@ class WebScraper:
 
         if not content or len(content.strip()) < 100:
             content = self._extract_with_newspaper(url)
-            method = "newspaper3k"
+            method = "newspaper4k"
 
         if not content or len(content.strip()) < 50:
             content = soup.get_text(separator=" ", strip=True)
@@ -375,6 +382,19 @@ class WebScraper:
             "word_count": len(content.split()) if content else 0,
             "extraction_method": method,
         }
+
+    def _extract_with_trafilatura(self, html: str) -> str:
+        try:
+            import trafilatura  # noqa: PLC0415
+
+            result = trafilatura.extract(html, include_comments=False, include_tables=False)
+            return result or ""
+        except ImportError:
+            logger.debug("trafilatura not installed — skipping")
+            return ""
+        except Exception as exc:
+            logger.debug("trafilatura extraction failed: %s", exc)
+            return ""
 
     def _remove_unwanted_elements(self, soup: BeautifulSoup) -> None:
         for selector in UNWANTED_SELECTORS:
