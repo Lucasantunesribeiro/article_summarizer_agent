@@ -88,8 +88,7 @@ class TestFileManagerCacheKey:
         file_manager = FileManager()
         canonical_url = "https://www.estacio.br/blog/aluno/o-que-e-um-artigo-cientifico"
         tracked_url = (
-            canonical_url
-            + "?srsltid=abc&utm_source=google&utm_campaign=spring&fbclid=xyz123"
+            canonical_url + "?srsltid=abc&utm_source=google&utm_campaign=spring&fbclid=xyz123"
         )
 
         assert file_manager._get_cache_key(canonical_url) == file_manager._get_cache_key(
