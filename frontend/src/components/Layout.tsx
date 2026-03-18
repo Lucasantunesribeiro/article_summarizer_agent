@@ -62,10 +62,11 @@ export default function Layout() {
               </Link>
               <button
                 onClick={handleLogout}
-                className="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-white transition hover:bg-primary/20"
+                className="flex items-center gap-1.5 rounded-lg h-10 px-3 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-white text-sm font-medium transition hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400"
                 aria-label="Sair da conta"
               >
-                <span className="material-symbols-outlined text-[20px]">account_circle</span>
+                <span className="material-symbols-outlined text-[18px]">logout</span>
+                <span className="hidden sm:block">Sair</span>
               </button>
             </>
           ) : (
