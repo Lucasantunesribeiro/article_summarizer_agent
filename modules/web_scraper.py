@@ -153,12 +153,24 @@ class WebScraper:
                 return self._scrape_via_wayback(url)
             raise
 
-        # 5. PDF early-exit — bypass HTML pipeline entirely
+        # 5. Binary format early-exit — bypass HTML pipeline entirely
         content_type = response.headers.get("Content-Type", "").lower()
-        is_pdf = "application/pdf" in content_type or url.lower().split("?")[0].endswith(".pdf")
+        url_path = url.lower().split("?")[0]
+
+        is_pdf = "application/pdf" in content_type or url_path.endswith(".pdf")
+        is_docx = "officedocument.wordprocessingml" in content_type or url_path.endswith(".docx")
+        is_txt = content_type.startswith("text/plain") or url_path.endswith(".txt")
 
         if is_pdf:
             content_data = self._extract_pdf_content(response._content, url)
+        elif is_docx:
+            content_data = self._extract_docx_content(response._content, url)
+        elif is_txt:
+            content_data = self._extract_txt_content(response._content, url)
+        else:
+            content_data = None
+
+        if content_data is not None:
             content_data.update(
                 {
                     "url": url,
@@ -169,7 +181,7 @@ class WebScraper:
             )
             self._mem_cache[url_hash] = content_data
             logger.info(
-                "PDF scraped %r — %d words via %s",
+                "Binary file scraped %r — %d words via %s",
                 content_data.get("title", "?"),
                 content_data.get("word_count", 0),
                 content_data.get("extraction_method", "?"),
@@ -402,6 +414,74 @@ class WebScraper:
                 "content": "",
                 "word_count": 0,
                 "extraction_method": "pdf_failed",
+            }
+
+    def _extract_docx_content(self, docx_bytes: bytes, url: str) -> dict:
+        """Extract plain text from a .docx file using python-docx."""
+        try:
+            import io
+
+            import docx  # noqa: PLC0415
+
+            doc = docx.Document(io.BytesIO(docx_bytes))
+            paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+            content = "\n\n".join(paragraphs).strip()
+
+            props = doc.core_properties
+            title = (props.title or "").strip() or url.rstrip("/").split("/")[-1]
+            author = (props.author or "").strip() or "Unknown Author"
+
+            return {
+                "title": title,
+                "author": author,
+                "publish_date": "Unknown Date",
+                "description": "",
+                "content": content,
+                "word_count": len(content.split()) if content else 0,
+                "extraction_method": "docx_python_docx",
+            }
+        except Exception as exc:
+            logger.warning("DOCX extraction failed for %s: %s", url, exc)
+            return {
+                "title": url.rstrip("/").split("/")[-1],
+                "author": "Unknown Author",
+                "publish_date": "Unknown Date",
+                "description": "",
+                "content": "",
+                "word_count": 0,
+                "extraction_method": "docx_failed",
+            }
+
+    def _extract_txt_content(self, txt_bytes: bytes, url: str) -> dict:
+        """Decode plain-text response bytes."""
+        try:
+            detected = chardet.detect(txt_bytes[:4096])
+            encoding = (
+                detected.get("encoding")
+                if detected and detected.get("confidence", 0) > 0.6
+                else "utf-8"
+            )
+            content = txt_bytes.decode(encoding or "utf-8", errors="replace").strip()
+
+            return {
+                "title": url.rstrip("/").split("/")[-1],
+                "author": "Unknown Author",
+                "publish_date": "Unknown Date",
+                "description": "",
+                "content": content,
+                "word_count": len(content.split()) if content else 0,
+                "extraction_method": "txt_raw",
+            }
+        except Exception as exc:
+            logger.warning("TXT extraction failed for %s: %s", url, exc)
+            return {
+                "title": url.rstrip("/").split("/")[-1],
+                "author": "Unknown Author",
+                "publish_date": "Unknown Date",
+                "description": "",
+                "content": "",
+                "word_count": 0,
+                "extraction_method": "txt_failed",
             }
 
     def _detect_encoding(self, response: requests.Response) -> str:
