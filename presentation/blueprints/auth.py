@@ -90,11 +90,13 @@ def api_register():
     container.user_repository.add(user)
 
     access_token, refresh_token = _build_tokens(user)
-    resp = jsonify({
-        "success": True,
-        "access_token": access_token,
-        "user": {"id": user.id, "username": user.username, "role": user.role.value},
-    })
+    resp = jsonify(
+        {
+            "success": True,
+            "access_token": access_token,
+            "user": {"id": user.id, "username": user.username, "role": user.role.value},
+        }
+    )
     resp.status_code = 201
     set_access_cookies(resp, access_token)
     set_refresh_cookies(resp, refresh_token)
