@@ -401,7 +401,9 @@ class WebScraper:
 
             # --- Step 2: pdfplumber fallback ---
             if len(content) < 100 and num_pages > 0:
-                logger.info("pypdf yielded thin content (%d chars) — trying pdfplumber", len(content))
+                logger.info(
+                    "pypdf yielded thin content (%d chars) — trying pdfplumber", len(content)
+                )
                 content = self._try_pdfplumber(pdf_bytes)
 
             # --- Step 3: Scanned PDF — raise user-friendly error ---
