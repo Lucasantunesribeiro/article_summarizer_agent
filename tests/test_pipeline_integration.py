@@ -15,6 +15,22 @@ SAMPLE_HTML = """
 </article>
 """
 
+NEXTJS_INLINE_HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+<title>Entenda tudo sobre um artigo científico | Blog Estácio</title>
+</head>
+<body>
+<main><h1>Entenda tudo sobre um artigo científico | Blog Estácio</h1></main>
+<script>
+self.__next_f.push([1,"1:I[12846,[],\\\"\\\"]"]);
+self.__next_f.push([1,"f:E{\\\"digest\\\":\\\"NEXT_REDIRECT\\\"}\\n\\u003cp\\u003eOs artigos científicos são uma produção textual com os principais resultados de uma pesquisa acadêmica. Em geral, eles são publicados em revistas científicas e ajudam a compartilhar descobertas com a comunidade acadêmica.\\u003c/p\\u003e\\n\\n**INTRODUÇÃO**\\nA introdução delimita o tema, apresenta o problema de pesquisa, contextualiza a relevância do estudo e informa os objetivos do trabalho.\\n\\n**DESENVOLVIMENTO**\\nO desenvolvimento reúne revisão de literatura, metodologia, resultados e discussão, mostrando como a pesquisa foi conduzida e quais evidências foram encontradas.\\n\\n**CONCLUSÃO E REFERÊNCIAS**\\nA conclusão sintetiza os achados, aponta limitações e sugere próximos passos. As referências listam as obras citadas e garantem respaldo científico ao artigo."]);
+</script>
+</body>
+</html>
+"""
+
 
 @pytest.fixture
 def mock_scraper(monkeypatch):
@@ -89,3 +105,41 @@ class TestPipelineIntegration:
         # Should succeed via fallback
         assert result["success"] is True
         assert result["method_used"] in ("extractive", "generative")
+
+    def test_pipeline_handles_nextjs_inline_payload_article(self, monkeypatch, tmp_path):
+        import requests
+
+        from config import config
+        from main import ArticleSummarizerAgent
+
+        class MockResponse:
+            status_code = 200
+            headers = {"Content-Type": "text/html; charset=utf-8"}
+            encoding = "utf-8"
+            text = NEXTJS_INLINE_HTML
+            content = NEXTJS_INLINE_HTML.encode("utf-8")
+
+            def raise_for_status(self):
+                pass
+
+            def iter_content(self, chunk_size=65536):
+                yield NEXTJS_INLINE_HTML.encode("utf-8")
+
+        def mock_get(self, url, **kwargs):
+            return MockResponse()
+
+        monkeypatch.setattr(requests.Session, "get", mock_get)
+        monkeypatch.setattr(config.output, "output_dir", str(tmp_path / "outputs"))
+        monkeypatch.setattr(config.output, "cache_dir", str(tmp_path / ".cache"))
+
+        agent = ArticleSummarizerAgent()
+        result = agent.run(
+            "https://www.estacio.br/blog/aluno/o-que-e-um-artigo-cientifico"
+            "?srsltid=abc&utm_source=google",
+            method="extractive",
+            length="short",
+        )
+
+        assert result["success"] is True
+        assert len(result["summary"]) > 40
+        assert result["method_used"] == "extractive"
