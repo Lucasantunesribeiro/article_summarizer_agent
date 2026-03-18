@@ -76,9 +76,11 @@ def create_app() -> Flask:
     )
     app.extensions["swagger"] = swagger
 
-    allowed_origins = os.environ.get("CORS_ORIGINS", "*").split(",")
+    raw_origins = os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",")
+    allowed_origins = [o.strip() for o in raw_origins]
     CORS(
         app,
+        supports_credentials=True,
         resources={
             r"/api/*": {
                 "origins": allowed_origins,
@@ -89,6 +91,7 @@ def create_app() -> Flask:
                     "X-CSRF-TOKEN",
                     "X-Idempotency-Key",
                 ],
+                "supports_credentials": True,
             }
         },
     )
