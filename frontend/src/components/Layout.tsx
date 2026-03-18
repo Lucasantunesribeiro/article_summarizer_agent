@@ -32,10 +32,10 @@ export default function Layout() {
         <div className="flex items-center gap-3">
           <Link
             to="/"
-            className="flex items-center justify-center rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold transition hover:opacity-90"
+            className="flex items-center justify-center rounded-lg h-10 px-3 sm:px-4 bg-primary text-white text-sm font-bold transition hover:opacity-90"
           >
-            <span className="material-symbols-outlined text-[18px] mr-1.5">add</span>
-            Novo Resumo
+            <span className="material-symbols-outlined text-[18px] sm:mr-1.5">add</span>
+            <span className="hidden sm:inline">Novo Resumo</span>
           </Link>
 
           <Link
