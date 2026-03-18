@@ -399,12 +399,17 @@ class WebScraper:
                     pages_text.append(text)
             content = "\n\n".join(pages_text).strip()
 
-            # --- Step 2: pdfplumber fallback ---
-            if len(content) < 100 and num_pages > 0:
-                logger.info(
-                    "pypdf yielded thin content (%d chars) — trying pdfplumber", len(content)
-                )
-                content = self._try_pdfplumber(pdf_bytes)
+            # --- Step 2: pdfplumber — always run, take the longer result ---
+            if num_pages > 0:
+                plumber_content = self._try_pdfplumber(pdf_bytes)
+                if len(plumber_content) > len(content):
+                    logger.info(
+                        "pdfplumber yielded more content (%d vs %d chars) — using pdfplumber",
+                        len(plumber_content),
+                        len(content),
+                    )
+                    content = plumber_content
+                    pages_text = []  # mark as pdfplumber result
 
             # --- Step 3: Scanned PDF — raise user-friendly error ---
             if not content and num_pages > 0:
@@ -451,7 +456,11 @@ class WebScraper:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
                 pages_text = []
                 for page in pdf.pages:
-                    text = page.extract_text() or ""
+                    text = page.extract_text(x_tolerance=3, y_tolerance=3) or ""
+                    if not text.strip():
+                        # Fallback: assemble from word bounding boxes
+                        words = page.extract_words(x_tolerance=3, y_tolerance=3)
+                        text = " ".join(w["text"] for w in words)
                     if text.strip():
                         pages_text.append(text)
                 return "\n\n".join(pages_text).strip()

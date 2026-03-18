@@ -196,7 +196,7 @@ function LandingView({ onTaskSubmitted }: LandingProps) {
     <>
       {/* Hero */}
       <section className="max-w-[1200px] mx-auto px-6 py-12 md:py-24">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
+        <div className="grid md:grid-cols-2 gap-12 items-center">
           {/* Left col */}
           <div>
             <p className="text-primary uppercase tracking-widest text-xs font-bold mb-4">
@@ -232,7 +232,7 @@ function LandingView({ onTaskSubmitted }: LandingProps) {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
                       Método
@@ -304,7 +304,7 @@ function LandingView({ onTaskSubmitted }: LandingProps) {
           </div>
 
           {/* Right col — decorative card (hidden on mobile) */}
-          <div className="hidden lg:block">
+          <div className="hidden md:block">
             <HeroDecorativeCard />
           </div>
         </div>
