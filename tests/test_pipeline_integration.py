@@ -31,6 +31,22 @@ self.__next_f.push([1,"f:E{\\\"digest\\\":\\\"NEXT_REDIRECT\\\"}\\n\\u003cp\\u00
 </html>
 """
 
+NEXTJS_INLINE_HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+<title>Entenda tudo sobre um artigo científico | Blog Estácio</title>
+</head>
+<body>
+<main><h1>Entenda tudo sobre um artigo científico | Blog Estácio</h1></main>
+<script>
+self.__next_f.push([1,"1:I[12846,[],\\\"\\\"]"]);
+self.__next_f.push([1,"f:E{\\\"digest\\\":\\\"NEXT_REDIRECT\\\"}\\n\\u003cp\\u003eOs artigos científicos são uma produção textual com os principais resultados de uma pesquisa acadêmica. Em geral, eles são publicados em revistas científicas e ajudam a compartilhar descobertas com a comunidade acadêmica.\\u003c/p\\u003e\\n\\n**INTRODUÇÃO**\\nA introdução delimita o tema, apresenta o problema de pesquisa, contextualiza a relevância do estudo e informa os objetivos do trabalho.\\n\\n**DESENVOLVIMENTO**\\nO desenvolvimento reúne revisão de literatura, metodologia, resultados e discussão, mostrando como a pesquisa foi conduzida e quais evidências foram encontradas.\\n\\n**CONCLUSÃO E REFERÊNCIAS**\\nA conclusão sintetiza os achados, aponta limitações e sugere próximos passos. As referências listam as obras citadas e garantem respaldo científico ao artigo."]);
+</script>
+</body>
+</html>
+"""
+
 
 @pytest.fixture
 def mock_scraper(monkeypatch):

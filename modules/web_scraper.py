@@ -176,7 +176,9 @@ class WebScraper:
             response = self._fetch(canonical_url, headers)
         except requests.HTTPError as http_exc:
             if http_exc.response is not None and http_exc.response.status_code == 403:
-                logger.warning("403 Forbidden for %s — trying Wayback Machine fallback", source_url)
+                logger.warning(
+                    "403 Forbidden for %s — trying Wayback Machine fallback", source_url
+                )
                 return self._scrape_via_wayback(canonical_url, original_url=source_url)
             raise
 
