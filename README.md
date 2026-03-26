@@ -231,6 +231,3 @@ Os testes cobrem:
 - o broker padrao da stack assincroma e Redis/Celery
 - o event bus atual e interno ao monolito; nao ha outbox nem integracao entre servicos externos
 
-## Portfolio
-
-O dossie tecnico detalhado do projeto esta em `Descricao_Portfolio.md`.
