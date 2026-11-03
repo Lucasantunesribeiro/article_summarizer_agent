@@ -4,38 +4,38 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint:
     name: Lint (ruff)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install ruff
+          cache: "pip"
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install "ruff>=0.13.0"
       - run: ruff check .
       - run: ruff format --check .
 
   test:
     name: Tests (pytest)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Os testes de banco usam pytest-postgresql, que sobe o próprio PostgreSQL
+    # (pg_ctl do runner); o restante usa SQLite. RabbitMQ fica disponível para
+    # o dispatcher Celery não esperar conexão recusada.
     services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_DB: summarizer_test
-          POSTGRES_USER: summarizer
-          POSTGRES_PASSWORD: summarizer
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
       rabbitmq:
         image: rabbitmq:3.13
         options: >-
@@ -51,6 +51,9 @@ jobs:
         with:
           python-version: "3.12"
           cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
       - name: Download NLTK data
@@ -60,26 +63,28 @@ jobs:
           for pkg in ('punkt', 'punkt_tab', 'stopwords', 'wordnet'):
               nltk.download(pkg, quiet=True)
           "
+      # Sem GEMINI_API_KEY: nenhum teste chama o LLM real. O modo generativo é
+      # testado com modules.llm.FakeLLMClient (tests/conftest.py bloqueia o
+      # adaptador real e conexões de rede externas).
       - name: Run tests
-        run: pytest tests/ -v --tb=short --cov --cov-report=term-missing --cov-report=xml
+        run: pytest tests/ -q --tb=short --cov --cov-report=term-missing --cov-report=xml
         env:
-          GEMINI_API_KEY: "test-key"
           FLASK_DEBUG: "true"
           SECRET_KEY: "test-secret-key"
           ADMIN_PASSWORD: "Admin123!"
-          DATABASE_URL: "postgresql://summarizer:summarizer@localhost:5432/summarizer_test"
           CELERY_BROKER_URL: "amqp://guest:guest@localhost:5672//"
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         if: always()
         with:
-          file: ./coverage.xml
+          files: ./coverage.xml
           fail_ci_if_error: false
 
   docker-build:
     name: Docker build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Build Docker image
