@@ -1,29 +1,47 @@
+# Blueprint do Render para a demo gratuita (plano free, sem cartão).
+#
+# Só o web service: o Render não tem plano gratuito para background workers,
+# então não há worker/beat do Celery. Sem broker acessível, o dispatcher roda
+# cada sumarização numa thread do próprio processo web (ver
+# infrastructure/container.py). O SPA React é compilado no build e servido
+# pelo Flask.
+#
+# Segredos NÃO ficam neste arquivo: as variáveis com `sync: false` são
+# pedidas pelo painel do Render na criação do Blueprint.
 services:
   - type: web
     name: article_summarizer_agent
-    env: python
+    runtime: python
+    plan: free
     buildCommand: "./render-build.sh"
     startCommand: "bash ./render-start.sh"
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: "3.13.0"
       - key: SKIP_DB_MIGRATIONS_ON_STARTUP
         value: "true"
-
-  - type: worker
-    name: article_summarizer_worker
-    env: python
-    buildCommand: "./render-build.sh"
-    startCommand: "celery -A celery_app worker --loglevel=info --concurrency=2"
-    envVars:
-      - key: PYTHON_VERSION
-        value: "3.13.0"
-
-  - type: worker
-    name: article_summarizer_beat
-    env: python
-    buildCommand: "./render-build.sh"
-    startCommand: "celery -A celery_app beat --loglevel=info --schedule /tmp/celerybeat-schedule"
-    envVars:
-      - key: PYTHON_VERSION
-        value: "3.13.0"
+      # Demo usa o resumo extrativo (local, sem custo). Para liberar o modo
+      # generativo, defina GEMINI_API_KEY com uma chave do plano gratuito do
+      # Google AI Studio (sem faturamento ativado).
+      - key: SUMMARIZATION_METHOD
+        value: extractive
+      - key: SECRET_KEY
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      # Limites para a demo pública não gerar custo/abuso.
+      # O proxy do Render anexa o IP de quem conectou ao X-Forwarded-For; o
+      # rate limit usa esse valor (o mais à direita), não o que o cliente envia.
+      - key: TRUSTED_PROXY_HOPS
+        value: "1"
+      - key: RATE_LIMIT_MAX
+        value: "5"
+      - key: RATE_LIMIT_WINDOW
+        value: "60"
+      - key: GEMINI_MAX_ATTEMPTS
+        value: "2"
+      - key: GEMINI_TOTAL_TIMEOUT
+        value: "60"

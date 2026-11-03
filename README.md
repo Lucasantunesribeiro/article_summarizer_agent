@@ -117,6 +117,7 @@ Lista completa com valores de exemplo em [`.env.example`](.env.example).
 | `CIRCUIT_BREAKER_THRESHOLD` / `CIRCUIT_BREAKER_TIMEOUT` | `3` / `120` | Falhas para abrir o circuito por host e tempo aberto (s). |
 | `CACHE_ENABLED` / `CACHE_TTL` / `OUTPUT_DIR` | `true` / `86400` / `outputs` | Cache de resultados e diretório de saída. |
 | `RATE_LIMIT_*`, `AUTH_RATE_LIMIT_*`, `POLL_RATE_LIMIT_*`, `ADMIN_RATE_LIMIT_*` | ver `.env.example` | Limites por grupo de rota. |
+| `TRUSTED_PROXY_HOPS` | `0` | Proxies confiáveis à frente do app. `0` ignora `X-Forwarded-For`; `1` usa o valor anexado pelo proxy (ex.: Render). |
 | `METRICS_TOKEN` | vazio | Token exigido em `/metrics`, se definido. |
 | `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` | `false` | Tracing OpenTelemetry. |
 | `LOG_LEVEL` | `INFO` | Nível de log. |
@@ -153,6 +154,34 @@ ruff check . && ruff format --check .
 - `tests/test_db_integration.py` usa `pytest-postgresql`, que sobe um PostgreSQL temporário com o `pg_ctl` da máquina. Sem PostgreSQL instalado (ou rodando como root), esses testes dão erro no setup.
 
 A CI (`.github/workflows/ci.yml`) roda lint, testes e `docker build` em pull requests e em push para `main`.
+
+## Deploy gratuito (Render)
+
+Demo pública: <https://article-summarizer-agent.onrender.com> (plano free do Render; após inatividade o serviço dorme e a primeira requisição pode levar cerca de 1 minuto).
+
+O [`render.yaml`](render.yaml) descreve um único web service no plano `free`:
+
+- **Build** (`render-build.sh`): instala dependências Python, aplica as migrations e compila o SPA React (`frontend/` para `static/dist/`).
+- **Start** (`render-start.sh`): Gunicorn com 1 worker e 4 threads.
+- **Sem Celery**: o Render não tem plano gratuito para background workers. Sem broker, cada sumarização roda numa thread do processo web.
+- **Banco**: sem `DATABASE_URL`, usa SQLite no disco efêmero do serviço. O histórico some a cada deploy ou reinício. Para persistir de graça, crie um Postgres no [Neon](https://neon.tech) ou no [Supabase](https://supabase.com) e defina `DATABASE_URL`.
+- **Redis** (opcional): sem `REDIS_URL`, cache e rate limiting ficam em memória/disco do processo. O [Upstash](https://upstash.com) tem Redis gratuito.
+
+Passo a passo:
+
+1. No Render, **New > Blueprint** e selecione este repositório (branch `main`).
+2. Preencha as variáveis pedidas pelo painel (as marcadas com `sync: false`):
+   - `SECRET_KEY`: string aleatória longa (ex.: `python -c "import secrets; print(secrets.token_urlsafe(48))"`).
+   - `ADMIN_PASSWORD`: senha do usuário `admin`.
+   - `GEMINI_API_KEY`: opcional. Deixe vazio para a demo só extrativa. Se usar, gere a chave no plano gratuito do Google AI Studio, sem faturamento ativado.
+3. O Render faz deploy automático a cada push na `main`. Pull requests não disparam deploy.
+
+Proteções contra custo e abuso na demo:
+
+- Rate limit de submissão por IP (`RATE_LIMIT_MAX=5` por `RATE_LIMIT_WINDOW=60` s no `render.yaml`), além dos limites de login, polling e admin. O IP vem do valor que o proxy do Render anexa ao `X-Forwarded-For` (`TRUSTED_PROXY_HOPS=1`), não do que o cliente envia.
+- Corpo da página limitado a 10 MB; entrada do LLM truncada em 30.000 caracteres; saída limitada a 1.024 tokens.
+- Retry do LLM limitado (`GEMINI_MAX_ATTEMPTS=2`, `GEMINI_TOTAL_TIMEOUT=60`).
+- A chave do LLM só existe como variável de ambiente no painel do Render, nunca no repositório.
 
 ## Decisões de arquitetura
 
