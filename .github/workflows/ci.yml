@@ -61,8 +61,11 @@ jobs:
           python -c "
           import nltk
           for pkg in ('punkt', 'punkt_tab', 'stopwords', 'wordnet'):
-              nltk.download(pkg, quiet=True)
+              assert nltk.download(pkg, quiet=True), pkg
           "
+          # O downloader deixa o wordnet só como .zip; descompacta para o
+          # nltk.data.find('corpora/wordnet') do TextProcessor encontrá-lo.
+          python -c "import zipfile, pathlib; d = pathlib.Path.home() / 'nltk_data' / 'corpora'; zipfile.ZipFile(d / 'wordnet.zip').extractall(d)"
       # Sem GEMINI_API_KEY: nenhum teste chama o LLM real. O modo generativo é
       # testado com modules.llm.FakeLLMClient (tests/conftest.py bloqueia o
       # adaptador real e conexões de rede externas).

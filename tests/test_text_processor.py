@@ -108,3 +108,26 @@ class TestSentenceFiltering:
         sentences = result["sentences"]
         for s in sentences:
             assert "copyright" not in s.lower(), f"Copyright line leaked: {s!r}"
+
+
+def test_wordnet_zip_counts_as_installed(monkeypatch):
+    """O downloader deixa o wordnet só como .zip; isso não pode disparar download."""
+    import nltk
+
+    from modules import text_processor
+
+    real_find = nltk.data.find
+
+    def fake_find(name, *args, **kwargs):
+        if name == "corpora/wordnet":
+            raise LookupError(name)
+        if name == "corpora/wordnet.zip":
+            return "/fake/corpora/wordnet.zip"
+        return real_find(name, *args, **kwargs)
+
+    downloads = []
+    monkeypatch.setattr(nltk.data, "find", fake_find)
+    monkeypatch.setattr(nltk, "download", lambda name, **kw: downloads.append(name))
+
+    text_processor.TextProcessor()
+    assert "wordnet" not in downloads

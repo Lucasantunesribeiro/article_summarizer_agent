@@ -20,6 +20,17 @@ from config import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, config
 DetectorFactory.seed = 0
 
 
+def _nltk_resource_exists(*names: str) -> bool:
+    """True se algum dos caminhos de recurso NLTK existir localmente."""
+    for name in names:
+        try:
+            nltk.data.find(name)
+            return True
+        except LookupError:
+            continue
+    return False
+
+
 class TextProcessor:
     """Advanced text processor with multilingual support"""
 
@@ -47,9 +58,10 @@ class TextProcessor:
             self.logger.info("Downloading NLTK stopwords...")
             nltk.download("stopwords", quiet=True)
 
-        try:
-            nltk.data.find("corpora/wordnet")
-        except LookupError:
+        # O downloader do NLTK mantém o wordnet só como .zip (não descompacta),
+        # e find("corpora/wordnet") não enxerga o zip. Sem checar o .zip, toda
+        # inicialização tentava baixar o wordnet de novo pela rede.
+        if not _nltk_resource_exists("corpora/wordnet", "corpora/wordnet.zip"):
             self.logger.info("Downloading NLTK wordnet...")
             nltk.download("wordnet", quiet=True)
 
