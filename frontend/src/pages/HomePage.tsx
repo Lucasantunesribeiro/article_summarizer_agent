@@ -33,7 +33,7 @@ function HeroDecorativeCard() {
       <div className="relative bg-white/5 dark:bg-slate-800/50 border border-white/10 dark:border-slate-700/50 rounded-2xl p-6 backdrop-blur-sm shadow-2xl">
         <div className="flex items-center gap-3 mb-4">
           <div className="size-8 bg-primary/20 rounded-lg flex items-center justify-center">
-            <span className="material-symbols-outlined text-primary text-[18px]">description</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-primary text-[18px]">description</span>
           </div>
           <div>
             <div className="h-3 w-32 bg-slate-300/30 dark:bg-slate-600/50 rounded-full" />
@@ -61,7 +61,7 @@ function HeroDecorativeCard() {
             ))}
           </div>
           <span className="text-xs text-slate-500 dark:text-slate-400">
-            <span className="material-symbols-outlined text-[14px] align-middle mr-1">schedule</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[14px] align-middle mr-1">schedule</span>
             1 min leitura
           </span>
         </div>
@@ -108,7 +108,7 @@ function HowItWorksSection() {
             >
               <div className="relative mb-5">
                 <div className="size-14 bg-primary/10 dark:bg-primary/20 rounded-xl flex items-center justify-center group-hover:bg-primary/20 transition">
-                  <span className="material-symbols-outlined text-primary text-[26px]">
+                  <span aria-hidden="true" className="material-symbols-outlined text-primary text-[26px]">
                     {step.icon}
                   </span>
                 </div>
@@ -150,7 +150,7 @@ function CtaSection({ onScrollToForm }: { onScrollToForm: () => void }) {
               onClick={onScrollToForm}
               className="inline-flex items-center gap-2 px-8 py-4 bg-white text-primary font-bold rounded-xl hover:shadow-xl hover:shadow-black/20 transition-all text-sm"
             >
-              <span className="material-symbols-outlined text-[18px]">rocket_launch</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">rocket_launch</span>
               Começar Agora
             </button>
           </div>
@@ -208,7 +208,7 @@ function LandingView({ onTaskSubmitted }: LandingProps) {
             </h1>
             <p className="text-slate-500 dark:text-slate-400 text-lg leading-relaxed mb-8">
               Cole a URL de qualquer artigo e receba um resumo inteligente com os pontos principais
-              destacados. Suporte a TF-IDF extractivo e Gemini generativo.
+              destacados. Suporte a TF-IDF extrativo e Gemini generativo.
             </p>
 
             {/* URL form card */}
@@ -218,7 +218,7 @@ function LandingView({ onTaskSubmitted }: LandingProps) {
             >
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="relative">
-                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-[20px] pointer-events-none">
+                  <span aria-hidden="true" className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-[20px] pointer-events-none">
                     link
                   </span>
                   <input
@@ -234,23 +234,31 @@ function LandingView({ onTaskSubmitted }: LandingProps) {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
+                    <label
+                      htmlFor="home-method"
+                      className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5"
+                    >
                       Método
                     </label>
                     <select
+                      id="home-method"
                       value={method}
                       onChange={(e) => setMethod(e.target.value as 'extractive' | 'generative')}
                       className="w-full bg-background-light dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/40 transition"
                     >
-                      <option value="extractive">Extractivo (TF-IDF)</option>
+                      <option value="extractive">Extrativo (TF-IDF)</option>
                       <option value="generative">Generativo (Gemini)</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">
+                    <label
+                      htmlFor="home-length"
+                      className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5"
+                    >
                       Tamanho
                     </label>
                     <select
+                      id="home-length"
                       value={length}
                       onChange={(e) => setLength(e.target.value as 'short' | 'medium' | 'long')}
                       className="w-full bg-background-light dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/40 transition"
@@ -267,7 +275,7 @@ function LandingView({ onTaskSubmitted }: LandingProps) {
                     role="alert"
                     className="flex items-center gap-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 px-3 py-2.5"
                   >
-                    <span className="material-symbols-outlined text-red-500 text-[16px] shrink-0">
+                    <span aria-hidden="true" className="material-symbols-outlined text-red-500 text-[16px] shrink-0">
                       error
                     </span>
                     <p className="text-xs text-red-700 dark:text-red-400">{error}</p>
@@ -281,7 +289,7 @@ function LandingView({ onTaskSubmitted }: LandingProps) {
                 >
                   {loading ? (
                     <>
-                      <span className="material-symbols-outlined text-[18px] animate-spin">
+                      <span aria-hidden="true" className="material-symbols-outlined text-[18px] animate-spin">
                         refresh
                       </span>
                       Processando...
@@ -289,7 +297,7 @@ function LandingView({ onTaskSubmitted }: LandingProps) {
                   ) : (
                     <>
                       Resumir Agora
-                      <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                      <span aria-hidden="true" className="material-symbols-outlined text-[18px]">arrow_forward</span>
                     </>
                   )}
                 </button>
@@ -298,7 +306,7 @@ function LandingView({ onTaskSubmitted }: LandingProps) {
 
             {/* Note */}
             <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
-              <span className="material-symbols-outlined text-[14px]">info</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">info</span>
               Suporta Medium, Substack, portais de notícias e mais.
             </p>
           </div>
@@ -340,7 +348,7 @@ function ProcessingView({ url, progress, message }: ProcessingViewProps) {
         <div className="bg-white dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/50 p-8 shadow-lg">
           <div className="flex items-center gap-4 mb-6">
             <div className="size-12 bg-primary/10 rounded-xl flex items-center justify-center animate-pulse">
-              <span className="material-symbols-outlined text-primary text-[24px]">
+              <span aria-hidden="true" className="material-symbols-outlined text-primary text-[24px]">
                 auto_awesome
               </span>
             </div>
@@ -475,7 +483,7 @@ function ResultView({
           {activeTab === 'summary' ? (
             <div className="bg-white dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/50 p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
-                <span className="material-symbols-outlined text-primary text-[22px]">
+                <span aria-hidden="true" className="material-symbols-outlined text-primary text-[22px]">
                   auto_awesome
                 </span>
                 <h2 className="font-bold text-slate-900 dark:text-white">Visão Executiva</h2>
@@ -494,7 +502,7 @@ function ResultView({
                         {sentences.map((s, i) => (
                           <li key={i} className="flex items-start gap-2.5 text-sm text-slate-700 dark:text-slate-300">
                             <span className="size-5 bg-primary/10 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-                              <span className="material-symbols-outlined text-primary text-[12px]">
+                              <span aria-hidden="true" className="material-symbols-outlined text-primary text-[12px]">
                                 check
                               </span>
                             </span>
@@ -526,7 +534,7 @@ function ResultView({
           {/* Export card */}
           <div className="bg-white dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/50 p-5 shadow-sm">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-[18px]">download</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-primary text-[18px]">download</span>
               Exportar
             </h3>
             <div className="grid grid-cols-3 gap-2">
@@ -536,7 +544,7 @@ function ResultView({
                   onClick={() => handleDownload(taskId, fmt)}
                   className="flex flex-col items-center gap-1.5 p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 hover:border-primary/40 hover:bg-primary/5 transition text-xs font-medium text-slate-700 dark:text-slate-300"
                 >
-                  <span className="material-symbols-outlined text-[18px] text-slate-500 dark:text-slate-400">
+                  <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-slate-500 dark:text-slate-400">
                     {fmt === 'json' ? 'data_object' : fmt === 'md' ? 'article' : 'text_snippet'}
                   </span>
                   .{fmt.toUpperCase()}
@@ -548,7 +556,7 @@ function ResultView({
           {/* Stats card */}
           <div className="bg-white dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/50 p-5 shadow-sm">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-[18px]">analytics</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-primary text-[18px]">analytics</span>
               Estatísticas
             </h3>
             <div className="space-y-3">
@@ -585,7 +593,7 @@ function ResultView({
           <div className="relative overflow-hidden rounded-xl bg-primary p-5 shadow-lg">
             <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none" />
             <div className="relative z-10">
-              <span className="material-symbols-outlined text-white/70 text-[22px] mb-2 block">
+              <span aria-hidden="true" className="material-symbols-outlined text-white/70 text-[22px] mb-2 block">
                 restart_alt
               </span>
               <h3 className="text-sm font-bold text-white mb-1">Nova consulta</h3>
@@ -596,7 +604,7 @@ function ResultView({
                 onClick={onNewQuery}
                 className="w-full flex items-center justify-center gap-1.5 h-9 bg-white text-primary rounded-lg text-xs font-bold hover:bg-white/90 transition"
               >
-                <span className="material-symbols-outlined text-[16px]">add</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[16px]">add</span>
                 Novo Resumo
               </button>
             </div>

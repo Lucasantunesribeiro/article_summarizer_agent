@@ -46,7 +46,7 @@ export default function SubmitForm({ onTaskSubmitted }: Props) {
           URL do Artigo
         </label>
         <div className="relative">
-          <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px] pointer-events-none">
+          <span aria-hidden="true" className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px] pointer-events-none">
             link
           </span>
           <input
@@ -76,7 +76,7 @@ export default function SubmitForm({ onTaskSubmitted }: Props) {
             onChange={(e) => setMethod(e.target.value as 'extractive' | 'generative')}
             className="w-full bg-background-light dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary/40 transition"
           >
-            <option value="extractive">Extractivo (TF-IDF)</option>
+            <option value="extractive">Extrativo (TF-IDF)</option>
             <option value="generative">Generativo (Gemini)</option>
           </select>
         </div>
@@ -105,7 +105,7 @@ export default function SubmitForm({ onTaskSubmitted }: Props) {
           role="alert"
           className="flex items-center gap-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 px-3 py-2.5 mb-4"
         >
-          <span className="material-symbols-outlined text-red-500 text-[16px] shrink-0">error</span>
+          <span aria-hidden="true" className="material-symbols-outlined text-red-500 text-[16px] shrink-0">error</span>
           <p className="text-xs text-red-700 dark:text-red-400">{error}</p>
         </div>
       )}
@@ -117,13 +117,13 @@ export default function SubmitForm({ onTaskSubmitted }: Props) {
       >
         {loading ? (
           <>
-            <span className="material-symbols-outlined text-[18px] animate-spin">refresh</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px] animate-spin">refresh</span>
             Processando...
           </>
         ) : (
           <>
             Resumir Agora
-            <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">arrow_forward</span>
           </>
         )}
       </button>

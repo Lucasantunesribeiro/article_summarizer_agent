@@ -37,7 +37,7 @@ export default function LoginPage() {
       <header className="flex items-center justify-between px-6 py-4 relative z-10">
         <Link to="/" className="flex items-center gap-3">
           <div className="size-8 bg-primary rounded-lg flex items-center justify-center text-white shrink-0">
-            <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">auto_awesome</span>
           </div>
           <span className="text-slate-900 dark:text-white text-lg font-bold tracking-[-0.015em]">
             Sumarizador.ai
@@ -74,7 +74,7 @@ export default function LoginPage() {
                   Usuário
                 </label>
                 <div className="relative">
-                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-[20px] pointer-events-none">
+                  <span aria-hidden="true" className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-[20px] pointer-events-none">
                     mail
                   </span>
                   <input
@@ -104,7 +104,7 @@ export default function LoginPage() {
                   </span>
                 </div>
                 <div className="relative">
-                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-[20px] pointer-events-none">
+                  <span aria-hidden="true" className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-[20px] pointer-events-none">
                     lock
                   </span>
                   <input
@@ -123,7 +123,7 @@ export default function LoginPage() {
                     aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
                   >
-                    <span className="material-symbols-outlined text-[20px]">
+                    <span aria-hidden="true" className="material-symbols-outlined text-[20px]">
                       {showPassword ? 'visibility_off' : 'visibility'}
                     </span>
                   </button>
@@ -136,7 +136,7 @@ export default function LoginPage() {
                   role="alert"
                   className="flex items-start gap-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 px-4 py-3"
                 >
-                  <span className="material-symbols-outlined text-red-500 text-[18px] shrink-0 mt-0.5">
+                  <span aria-hidden="true" className="material-symbols-outlined text-red-500 text-[18px] shrink-0 mt-0.5">
                     error
                   </span>
                   <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
@@ -151,7 +151,7 @@ export default function LoginPage() {
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
-                    <span className="material-symbols-outlined text-[18px] animate-spin">
+                    <span aria-hidden="true" className="material-symbols-outlined text-[18px] animate-spin">
                       refresh
                     </span>
                     Entrando...
@@ -165,7 +165,7 @@ export default function LoginPage() {
             {/* JWT badge */}
             <div className="mt-6 flex justify-center">
               <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-medium">
-                <span className="material-symbols-outlined text-[16px]">verified_user</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[16px]">verified_user</span>
                 Autenticação JWT segura
               </span>
             </div>
@@ -174,7 +174,7 @@ export default function LoginPage() {
           {/* Footer security badge */}
           <div className="mt-8 flex justify-center">
             <div className="flex items-center gap-2 opacity-30 grayscale hover:opacity-100 hover:grayscale-0 transition-all cursor-default">
-              <span className="material-symbols-outlined text-slate-600 dark:text-slate-400 text-[20px]">
+              <span aria-hidden="true" className="material-symbols-outlined text-slate-600 dark:text-slate-400 text-[20px]">
                 shield
               </span>
               <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">

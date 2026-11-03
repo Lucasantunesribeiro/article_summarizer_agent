@@ -20,7 +20,7 @@ function Feedback({ state, onDismiss }: { state: FeedbackState; onDismiss: () =>
           : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/40 text-red-700 dark:text-red-400'
       }`}
     >
-      <span className="material-symbols-outlined text-[18px] shrink-0 mt-0.5">
+      <span aria-hidden="true" className="material-symbols-outlined text-[18px] shrink-0 mt-0.5">
         {isSuccess ? 'check_circle' : 'error'}
       </span>
       <span className="flex-1">{state.message}</span>
@@ -29,7 +29,7 @@ function Feedback({ state, onDismiss }: { state: FeedbackState; onDismiss: () =>
         aria-label="Fechar"
         className="text-current opacity-60 hover:opacity-100 transition"
       >
-        <span className="material-symbols-outlined text-[18px]">close</span>
+        <span aria-hidden="true" className="material-symbols-outlined text-[18px]">close</span>
       </button>
     </div>
   )
@@ -57,7 +57,7 @@ function SidebarNav({ items }: { items: SidebarItem[] }) {
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
+          <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{item.icon}</span>
           {item.label}
         </Link>
       ))}
@@ -116,7 +116,7 @@ function MethodToggle({
               : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-primary/40'
           } disabled:opacity-50 disabled:cursor-not-allowed`}
         >
-          {val === 'extractive' ? 'Extractivo (TF-IDF)' : 'Generativo (Gemini)'}
+          {val === 'extractive' ? 'Extrativo (TF-IDF)' : 'Generativo (Gemini)'}
         </button>
       ))}
     </div>
@@ -129,7 +129,7 @@ function NotAuthenticatedView() {
   return (
     <div className="max-w-[1200px] mx-auto px-6 py-20 flex flex-col items-center text-center">
       <div className="size-14 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center mb-4">
-        <span className="material-symbols-outlined text-slate-400 text-[28px]">lock</span>
+        <span aria-hidden="true" className="material-symbols-outlined text-slate-400 text-[28px]">lock</span>
       </div>
       <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-2">
         Acesso Restrito
@@ -141,7 +141,7 @@ function NotAuthenticatedView() {
         to="/login"
         className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:opacity-90 transition"
       >
-        <span className="material-symbols-outlined text-[18px]">login</span>
+        <span aria-hidden="true" className="material-symbols-outlined text-[18px]">login</span>
         Fazer Login
       </Link>
     </div>
@@ -251,7 +251,7 @@ export default function SettingsPage() {
           {/* Runtime Settings */}
           <div className="bg-white dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/50 shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700/50 flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary text-[20px]">
+              <span aria-hidden="true" className="material-symbols-outlined text-primary text-[20px]">
                 settings_suggest
               </span>
               <h2 className="font-bold text-slate-900 dark:text-white">
@@ -261,7 +261,7 @@ export default function SettingsPage() {
             <div className="p-6">
               {loadingSettings ? (
                 <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                  <span className="material-symbols-outlined text-[18px] animate-spin">
+                  <span aria-hidden="true" className="material-symbols-outlined text-[18px] animate-spin">
                     refresh
                   </span>
                   Carregando configurações...
@@ -298,7 +298,7 @@ export default function SettingsPage() {
           {isAdmin && (
             <div className="bg-white dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/50 shadow-sm overflow-hidden">
               <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700/50 flex items-center gap-3">
-                <span className="material-symbols-outlined text-primary text-[20px]">
+                <span aria-hidden="true" className="material-symbols-outlined text-primary text-[20px]">
                   key
                 </span>
                 <h2 className="font-bold text-slate-900 dark:text-white">Segurança JWT</h2>
@@ -318,7 +318,7 @@ export default function SettingsPage() {
                     onClick={handleRotateSecret}
                     className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-primary/30 bg-primary/5 text-primary text-sm font-medium hover:bg-primary/10 transition"
                   >
-                    <span className="material-symbols-outlined text-[16px]">autorenew</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-[16px]">autorenew</span>
                     Rotacionar Agora
                   </button>
                 </div>
@@ -329,7 +329,7 @@ export default function SettingsPage() {
           {/* RBAC / User info */}
           <div className="bg-white dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/50 shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700/50 flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary text-[20px]">
+              <span aria-hidden="true" className="material-symbols-outlined text-primary text-[20px]">
                 manage_accounts
               </span>
               <h2 className="font-bold text-slate-900 dark:text-white">Controle de Acesso (RBAC)</h2>
@@ -337,7 +337,7 @@ export default function SettingsPage() {
             <div className="p-6">
               <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-700/30 rounded-xl border border-slate-100 dark:border-slate-700/40">
                 <div className="size-10 bg-primary/10 rounded-full flex items-center justify-center">
-                  <span className="material-symbols-outlined text-primary text-[20px]">
+                  <span aria-hidden="true" className="material-symbols-outlined text-primary text-[20px]">
                     person
                   </span>
                 </div>
@@ -366,7 +366,7 @@ export default function SettingsPage() {
           {isAdmin && (
             <div className="bg-white dark:bg-slate-800/50 rounded-xl border border-rose-200 dark:border-rose-900/40 shadow-sm overflow-hidden">
               <div className="px-6 py-4 border-b border-rose-100 dark:border-rose-900/30 flex items-center gap-3 bg-rose-50 dark:bg-rose-900/10">
-                <span className="material-symbols-outlined text-rose-500 text-[20px]">
+                <span aria-hidden="true" className="material-symbols-outlined text-rose-500 text-[20px]">
                   warning
                 </span>
                 <h2 className="font-bold text-rose-700 dark:text-rose-400">
@@ -388,7 +388,7 @@ export default function SettingsPage() {
                     onClick={handleClearCache}
                     className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500 text-white text-sm font-medium hover:bg-rose-600 transition"
                   >
-                    <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
+                    <span aria-hidden="true" className="material-symbols-outlined text-[16px]">delete_sweep</span>
                     Limpar Cache
                   </button>
                 </div>

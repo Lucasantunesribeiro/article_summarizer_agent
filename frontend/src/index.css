@@ -12,3 +12,29 @@
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
+
+/* Ícones: largura fixa de 1em evita que o nome da ligadura (ex.: "auto_awesome")
+   estoure o layout enquanto a fonte não carrega ou se ela for bloqueada. */
+.material-symbols-outlined {
+  display: inline-block;
+  width: 1em;
+  overflow: hidden;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+@layer base {
+  /* Foco visível para navegação por teclado (WCAG 2.4.7). */
+  :focus-visible {
+    outline: 2px solid #818cf8;
+    outline-offset: 2px;
+  }
+}
+
+/* No tema escuro, o roxo primário (#290ac2) como cor de texto tem contraste
+   ~1.6:1 com o fundo. Usa um tom claro (≈10:1) para texto e ícones; fundos
+   brancos mantêm o primário original. */
+.dark .text-primary:not(.bg-white),
+.dark .hover\:text-primary:hover {
+  color: #a5b4fc;
+}

@@ -13,7 +13,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <span className="material-symbols-outlined text-[32px] animate-spin text-slate-400">
+        <span aria-hidden="true" className="material-symbols-outlined text-[32px] animate-spin text-slate-400">
           refresh
         </span>
       </div>
