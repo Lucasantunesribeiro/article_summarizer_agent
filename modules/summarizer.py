@@ -31,18 +31,22 @@ logger = logging.getLogger(__name__)
 class Summarizer:
     """Dispatches to Gemini or extractive depending on config / availability."""
 
-    def __init__(self) -> None:
+    def __init__(self, llm_client: object | None = None) -> None:
+        """``llm_client``: implementação de ``modules.llm.LLMClient`` a usar no
+        modo generativo (ex.: ``FakeLLMClient`` em testes). Sem ele, o cliente
+        Gemini real é criado sob demanda a partir de ``GEMINI_API_KEY``."""
         self._extractive = ExtractiveSummarizer()
+        self._llm_client = llm_client
         self._gemini: object | None = None  # lazy init
 
-        if config.summarization.method == "generative":
+        if config.summarization.method == "generative" or llm_client is not None:
             self._gemini = self._try_init_gemini()
 
     def _try_init_gemini(self) -> object | None:
         try:
             from .gemini_summarizer import GeminiSummarizer  # noqa: PLC0415
 
-            gs = GeminiSummarizer()
+            gs = GeminiSummarizer(client=self._llm_client)
             logger.info("Gemini summarizer ready.")
             return gs
         except Exception as exc:
@@ -80,7 +84,7 @@ class Summarizer:
                 self._gemini = self._try_init_gemini()
             if effective_method == "generative" and self._gemini is not None:
                 result = self._gemini.summarize(  # type: ignore[attr-defined]
-                    processed_data
+                    processed_data, length=effective_length
                 )
             elif effective_method == "generative" and config.summarization.use_fallback:
                 logger.info("Gemini unavailable — falling back to extractive.")

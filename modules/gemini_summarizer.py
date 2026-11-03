@@ -1,62 +1,40 @@
 """
-Gemini Summarizer — Google Gemini API Integration
-==================================================
+Generative Summarizer — LLM via porta ``LLMClient`` (Gemini por padrão)
+=======================================================================
 
-Generates high-quality article summaries using Google Gemini via the
-google-genai SDK (>= 1.x).
+``LLMSummarizer`` depende apenas da porta :class:`modules.llm.LLMClient`:
+em produção recebe :class:`modules.llm.gemini.GeminiLLMClient`; nos testes,
+:class:`modules.llm.FakeLLMClient` (determinístico, sem rede, sem chave).
+
+Fluxo de uma sumarização:
+1. Monta o prompt com o artigo higienizado, truncado e delimitado como dado
+   (``modules.prompt_safety.build_summary_prompt``).
+2. Chama o LLM com retry exponencial + jitter apenas para erros transitórios
+   (``modules.retry``), respeitando Retry-After, limite de tentativas e
+   orçamento total de tempo.
+3. Valida a saída (JSON ``{"summary": str}``, tamanho, sem HTML/URLs novas).
 
 Configuration (env vars):
-    GEMINI_API_KEY    — required; your Gemini API key.
+    GEMINI_API_KEY    — required for the real Gemini client.
     GEMINI_MODEL_ID   — default: gemini-2.5-flash-preview-05-20
-                        Override with any model available in your project.
-                        Refer to the official model list:
-                        https://ai.google.dev/gemini-api/docs/models
-
-Usage:
-    from modules.gemini_summarizer import GeminiSummarizer
-    summarizer = GeminiSummarizer()
-    result = summarizer.summarize(processed_data, length="medium")
-
-Note on preview models:
-    Model IDs ending in -preview may change. Always validate the model ID
-    against the API docs for your region and plan.
+    GEMINI_TIMEOUT, GEMINI_MAX_ATTEMPTS, GEMINI_RETRY_BASE_DELAY,
+    GEMINI_RETRY_MAX_DELAY, GEMINI_TOTAL_TIMEOUT, GEMINI_MAX_SUMMARY_CHARS.
 """
 
 from __future__ import annotations
 
 import logging
-import textwrap
+import random
+import time
+from collections.abc import Callable
+from dataclasses import replace
 
 from config import config
+from modules.llm.base import LLMClient, LLMRequest, LLMTransientError
+from modules.prompt_safety import SUMMARY_JSON_SCHEMA, build_summary_prompt, validate_summary_output
+from modules.retry import RetryDecision, RetryPolicy, retry_call
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# SDK import — fails loudly if google-genai is not installed
-# ---------------------------------------------------------------------------
-try:
-    import google.genai as genai  # type: ignore[import]
-    from google.genai import types as genai_types  # type: ignore[import]
-
-    _GENAI_AVAILABLE = True
-except ImportError:
-    _GENAI_AVAILABLE = False
-
-# ---------------------------------------------------------------------------
-# Prompt templates
-# ---------------------------------------------------------------------------
-
-_SYSTEM_PROMPT = textwrap.dedent("""\
-    You are a professional article summariser.
-    Your task is to produce a clear, factual, and neutral summary of the
-    provided article text.
-    Rules:
-    - Write complete, well-formed sentences. Never start a sentence with a
-      number, a reference marker (e.g. "3)"), or a fragment.
-    - Do not reproduce reference lists, footnotes, or navigation text.
-    - Do not add opinions or information not present in the original text.
-    - Write in the same language as the article.
-""")
 
 _LENGTH_INSTRUCTIONS: dict[str, str] = {
     "short": "Write a concise summary in 2–3 sentences.",
@@ -65,26 +43,45 @@ _LENGTH_INSTRUCTIONS: dict[str, str] = {
 }
 
 
-class GeminiSummarizer:
-    """Summarise text using the Google Gemini API."""
+def classify_llm_error(exc: BaseException) -> RetryDecision:
+    """Somente ``LLMTransientError`` é re-tentado."""
+    if isinstance(exc, LLMTransientError):
+        return RetryDecision(retryable=True, retry_after=exc.retry_after)
+    return RetryDecision(retryable=False)
 
-    def __init__(self) -> None:
-        if not _GENAI_AVAILABLE:
-            raise ImportError(
-                "google-genai is required for Gemini summarisation. "
-                "Install with: pip install 'google-genai>=1.0.0'"
-            )
 
-        api_key = config.gemini.api_key
-        if not api_key:
-            raise ValueError(
-                "GEMINI_API_KEY environment variable is not set. "
-                "Obtain a key at https://aistudio.google.com/app/apikey"
-            )
+def default_llm_retry_policy() -> RetryPolicy:
+    return RetryPolicy(
+        max_attempts=max(1, config.gemini.max_attempts),
+        base_delay=config.gemini.retry_base_delay,
+        max_delay=config.gemini.retry_max_delay,
+        total_timeout=config.gemini.total_timeout,
+    )
 
-        self._client = genai.Client(api_key=api_key)
-        self._model_id = config.gemini.model_id
-        logger.info("GeminiSummarizer initialised with model %r", self._model_id)
+
+class LLMSummarizer:
+    """Sumarizador generativo independente de provedor."""
+
+    def __init__(
+        self,
+        client: LLMClient,
+        *,
+        retry_policy: RetryPolicy | None = None,
+        sleep: Callable[[float], None] = time.sleep,
+        clock: Callable[[], float] = time.monotonic,
+        rng: Callable[[], float] = random.random,
+        nonce: str | None = None,
+    ) -> None:
+        self._client = client
+        self._retry_policy = retry_policy
+        self._sleep = sleep
+        self._clock = clock
+        self._rng = rng
+        self._nonce = nonce  # fixo só em testes; em produção é aleatório por chamada
+
+    @property
+    def model_name(self) -> str:
+        return getattr(self._client, "model_name", "unknown")
 
     def summarize(self, processed_data: dict, length: str | None = None) -> dict:
         """Generate a summary from processed text data.
@@ -95,81 +92,93 @@ class GeminiSummarizer:
 
         Returns:
             Dict with keys: summary, method_used, model_name, input_chars,
-            output_chars, usage.
+            output_chars, usage, input_truncated.
+
+        Raises:
+            ValueError: no text to summarise.
+            LLMError subclasses: provider failure or output rejected by validation.
         """
         summary_length = length or config.summarization.summary_length
         length_instruction = _LENGTH_INSTRUCTIONS.get(
             summary_length, _LENGTH_INSTRUCTIONS["medium"]
         )
 
-        # Prefer filtered sentences over raw clean_text so that
-        # navigation noise, numbered reference fragments, and other
-        # artefacts caught by _is_valid_sentence are excluded from
-        # the Gemini prompt.
+        # Prefer filtered sentences over raw clean_text so that navigation
+        # noise and reference fragments are excluded from the prompt.
         sentences: list[str] = processed_data.get("sentences", [])
         clean_text = " ".join(sentences) if sentences else processed_data.get("clean_text", "")
-
         if not clean_text.strip():
             raise ValueError("No text available for summarisation.")
 
-        # Truncate to avoid large billing surprises
-        truncated = clean_text[: config.gemini.max_input_chars]
-        if len(clean_text) > config.gemini.max_input_chars:
+        prompt = build_summary_prompt(
+            clean_text,
+            length_instruction=length_instruction,
+            max_chars=config.gemini.max_input_chars,
+            nonce=self._nonce,
+        )
+        if not prompt.article_text:
+            raise ValueError("No text available for summarisation.")
+        if prompt.truncated:
             logger.info(
-                "Input truncated from %d to %d chars for Gemini",
-                len(clean_text),
+                "Input truncated to %d chars for LLM (limit %d)",
+                len(prompt.article_text),
                 config.gemini.max_input_chars,
             )
 
-        prompt = f"{_SYSTEM_PROMPT}\n{length_instruction}\n\nArticle text:\n\n{truncated}"
+        base_request = LLMRequest(
+            system_instruction=prompt.system_instruction,
+            user_content=prompt.user_content,
+            max_output_tokens=config.gemini.max_output_tokens,
+            temperature=config.gemini.temperature,
+            timeout_seconds=float(config.gemini.timeout),
+            json_schema=SUMMARY_JSON_SCHEMA,
+        )
+
+        def _attempt(remaining: float):
+            timeout = max(1.0, min(float(config.gemini.timeout), remaining))
+            return self._client.generate(replace(base_request, timeout_seconds=timeout))
 
         logger.info(
-            "Requesting Gemini summary — model=%r length=%r chars=%d",
-            self._model_id,
+            "Requesting LLM summary — model=%r length=%r chars=%d",
+            self.model_name,
             summary_length,
-            len(truncated),
+            len(prompt.article_text),
+        )
+        response = retry_call(
+            _attempt,
+            policy=self._retry_policy or default_llm_retry_policy(),
+            classify=classify_llm_error,
+            sleep=self._sleep,
+            clock=self._clock,
+            rng=self._rng,
+            description=f"LLM {self.model_name}",
         )
 
-        try:
-            response = self._client.models.generate_content(
-                model=self._model_id,
-                contents=prompt,
-                config=genai_types.GenerateContentConfig(
-                    max_output_tokens=config.gemini.max_output_tokens,
-                    temperature=config.gemini.temperature,
-                ),
-            )
-        except Exception as exc:
-            logger.error("Gemini API call failed: %s", exc)
-            raise
-
-        summary_text = response.text.strip() if response.text else ""
-        if not summary_text:
-            raise ValueError("Gemini returned an empty response.")
-
-        # Usage metadata (may be None depending on SDK version)
-        usage: dict = {}
-        try:
-            meta = response.usage_metadata
-            usage = {
-                "prompt_tokens": getattr(meta, "prompt_token_count", None),
-                "candidates_tokens": getattr(meta, "candidates_token_count", None),
-                "total_tokens": getattr(meta, "total_token_count", None),
-            }
-        except Exception:
-            pass
-
-        logger.info(
-            "Gemini summary complete — %d output chars, usage=%s",
-            len(summary_text),
-            usage,
+        summary_text = validate_summary_output(
+            response.text,
+            prompt=prompt,
+            max_chars=config.gemini.max_summary_chars,
         )
 
+        logger.info("LLM summary complete — %d output chars", len(summary_text))
         return {
             "summary": summary_text,
             "method_used": "generative",
-            "model_name": self._model_id,
-            "input_chars": len(truncated),
+            "model_name": response.model,
+            "input_chars": len(prompt.article_text),
+            "input_truncated": prompt.truncated,
             "output_chars": len(summary_text),
-            "usage": usage,
+            "usage": response.usage,
         }
+
+
+class GeminiSummarizer(LLMSummarizer):
+    """``LLMSummarizer`` com o adaptador Gemini como cliente padrão."""
+
+    def __init__(self, client: LLMClient | None = None, **kwargs) -> None:
+        if client is None:
+            from modules.llm.gemini import GeminiLLMClient  # noqa: PLC0415
+
+            client = GeminiLLMClient(api_key=config.gemini.api_key, model_id=config.gemini.model_id)
+            logger.info("GeminiSummarizer initialised with model %r", client.model_name)
+        super().__init__(client, **kwargs)

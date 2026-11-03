@@ -159,7 +159,18 @@ class GeminiConfig:
     # Truncate input to avoid large bills (characters, not tokens)
     max_input_chars: int = 30_000
 
+    # Timeout por requisição (segundos)
     timeout: int = int(os.getenv("GEMINI_TIMEOUT", "30"))
+
+    # Retry de erros transitórios (timeout, 429, 5xx)
+    max_attempts: int = int(os.getenv("GEMINI_MAX_ATTEMPTS", "3"))
+    retry_base_delay: float = float(os.getenv("GEMINI_RETRY_BASE_DELAY", "1"))
+    retry_max_delay: float = float(os.getenv("GEMINI_RETRY_MAX_DELAY", "20"))
+    # Orçamento total (tentativas + esperas) de uma sumarização, em segundos
+    total_timeout: float = float(os.getenv("GEMINI_TOTAL_TIMEOUT", "90"))
+
+    # Validação da saída: resumo maior que isso é rejeitado
+    max_summary_chars: int = int(os.getenv("GEMINI_MAX_SUMMARY_CHARS", "4000"))
 
 
 @dataclass

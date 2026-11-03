@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import ipaddress
 import os
+import socket
 from pathlib import Path
 
 import pytest
@@ -17,12 +19,100 @@ TEST_DB_PATH = ROOT / "test_app.sqlite3"
 os.environ.setdefault("SECRET_KEY", "test-secret-key-with-at-least-thirty-two-characters")
 os.environ.setdefault("JWT_SECRET_KEY", "test-jwt-secret-with-at-least-thirty-two-characters")
 os.environ.setdefault("FLASK_DEBUG", "true")
-os.environ.setdefault("GEMINI_API_KEY", "test-key")
+# Nenhum teste fala com provedor de LLM real: sem chave, o cliente Gemini nem
+# é construído (fallback extrativo) e testes do modo generativo injetam
+# modules.llm.FakeLLMClient. Sobrescreve qualquer chave vinda do ambiente/CI.
+os.environ["GEMINI_API_KEY"] = ""
 os.environ.setdefault("ADMIN_USER", "admin")
 os.environ.setdefault("ADMIN_PASSWORD", "Admin123!")
 os.environ.setdefault("JWT_COOKIE_CSRF_PROTECT", "true")
 os.environ.setdefault("REDIS_URL", "")
 os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB_PATH.as_posix()}"
+
+
+# ---------------------------------------------------------------------------
+# Guarda de rede: só conexões para loopback (Postgres/RabbitMQ locais dos testes
+# de integração). Qualquer tentativa de falar com a internet — provedor de LLM,
+# site de artigo, Wayback — falha alto em vez de passar despercebida.
+# ---------------------------------------------------------------------------
+
+_real_connect = socket.socket.connect
+_real_connect_ex = socket.socket.connect_ex
+
+
+class ExternalNetworkBlocked(RuntimeError):
+    pass
+
+
+def _check_address(sock: socket.socket, address) -> None:
+    if sock.family not in (socket.AF_INET, socket.AF_INET6):
+        return
+    host = str(address[0]).split("%", 1)[0]
+    try:
+        allowed = ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        allowed = host == "localhost"
+    if not allowed:
+        raise ExternalNetworkBlocked(f"Teste tentou conexão externa para {address!r}")
+
+
+def _guarded_connect(self, address):
+    _check_address(self, address)
+    return _real_connect(self, address)
+
+
+def _guarded_connect_ex(self, address):
+    _check_address(self, address)
+    return _real_connect_ex(self, address)
+
+
+socket.socket.connect = _guarded_connect  # type: ignore[method-assign]
+socket.socket.connect_ex = _guarded_connect_ex  # type: ignore[method-assign]
+
+
+@pytest.fixture(autouse=True)
+def _forbid_real_llm(monkeypatch):
+    """Falha o teste se o adaptador Gemini real for usado."""
+    from modules.llm import gemini
+
+    def _blocked(self, request):
+        raise AssertionError("Teste chamou o provedor de LLM real; use FakeLLMClient.")
+
+    monkeypatch.setattr(gemini.GeminiLLMClient, "generate", _blocked)
+
+
+@pytest.fixture(autouse=True)
+def _restore_global_config():
+    """Restaura o singleton ``config`` após cada teste.
+
+    Testes de API aplicam settings em runtime (ex.: ``scraping.timeout=45``),
+    o que alterava ``config`` para os testes seguintes e tornava a suíte
+    dependente da ordem de execução.
+    """
+    from config import config
+
+    sections = {name: dict(vars(section)) for name, section in vars(config).items()}
+    yield
+    for name, values in sections.items():
+        section = getattr(config, name)
+        section.__dict__.clear()
+        section.__dict__.update(values)
+
+
+@pytest.fixture
+def public_dns(monkeypatch):
+    """Resolve qualquer hostname para um IP público de documentação, sem DNS real."""
+
+    def _fake_getaddrinfo(host, port, *args, **kwargs):
+        try:
+            ip = ipaddress.ip_address(host)
+        except ValueError:
+            ip = ipaddress.ip_address("93.184.216.34")
+        family = socket.AF_INET6 if ip.version == 6 else socket.AF_INET
+        return [(family, socket.SOCK_STREAM, 6, "", (str(ip), port))]
+
+    monkeypatch.setattr(socket, "getaddrinfo", _fake_getaddrinfo)
+    return _fake_getaddrinfo
 
 
 def _run_migrations(database_url: str) -> None:
