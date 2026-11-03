@@ -27,22 +27,23 @@ import logging
 import random
 import socket
 import time
-from urllib.parse import urlparse
+from urllib.parse import quote, urljoin, urlparse
 
 import chardet
 import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
-from urllib3.util.retry import Retry
 
 from config import CONTENT_SELECTORS, UNWANTED_SELECTORS, config
 from modules.circuit_breaker import CircuitOpenError, circuit_breaker
+from modules.retry import (
+    TRANSIENT_HTTP_STATUSES,
+    RetryBudgetExceeded,
+    RetryDecision,
+    RetryPolicy,
+    parse_retry_after,
+    retry_call,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -85,23 +86,87 @@ def _check_ssrf(url: str) -> None:
             raise ValueError(f"Blocked hostname suffix in {hostname!r}")
 
     # Resolve all A/AAAA records and validate each one
+    default_port = 443 if parsed.scheme == "https" else 80
     try:
-        addr_infos = socket.getaddrinfo(hostname, parsed.port or 80)
+        port = parsed.port or default_port
+    except ValueError as exc:
+        raise ValueError(f"Invalid URL port in {url!r}") from exc
+    try:
+        addr_infos = socket.getaddrinfo(hostname, port)
     except socket.gaierror as exc:
         raise ValueError(f"Cannot resolve hostname {hostname!r}: {exc}") from exc
 
+    if not addr_infos:
+        raise ValueError(f"Cannot resolve hostname {hostname!r}: no addresses")
+
     for _family, _type, _proto, _canonname, sockaddr in addr_infos:
-        ip_str = sockaddr[0]
+        ip_str = str(sockaddr[0]).split("%", 1)[0]  # remove zone id IPv6 (fe80::1%eth0)
         try:
             ip_obj = ipaddress.ip_address(ip_str)
-        except ValueError:
-            continue
-        for network in _BLOCKED_NETWORKS:
-            if ip_obj in network:
-                raise ValueError(
-                    f"Blocked: {hostname!r} resolves to {ip_str} "
-                    f"which is in private range {network}."
-                )
+        except ValueError as exc:
+            raise ValueError(f"Blocked: {hostname!r} resolves to unparseable {ip_str!r}") from exc
+        reason = _blocked_reason(ip_obj)
+        if reason:
+            raise ValueError(f"Blocked: {hostname!r} resolves to {ip_str} which is {reason}.")
+
+
+def _blocked_reason(ip_obj: ipaddress.IPv4Address | ipaddress.IPv6Address) -> str | None:
+    """Motivo do bloqueio de *ip_obj*, ou ``None`` se for endereço público."""
+    # IPv4 embutido em IPv6 (::ffff:127.0.0.1, 6to4, Teredo) é avaliado como IPv4.
+    if isinstance(ip_obj, ipaddress.IPv6Address):
+        embedded = ip_obj.ipv4_mapped or ip_obj.sixtofour
+        if embedded is None and ip_obj.teredo:
+            embedded = ip_obj.teredo[1]
+        if embedded is not None:
+            inner = _blocked_reason(embedded)
+            if inner:
+                return f"{inner} (embedded in {ip_obj})"
+    for network in _BLOCKED_NETWORKS:
+        if ip_obj.version == network.version and ip_obj in network:
+            return f"in private range {network}"
+    if (
+        ip_obj.is_private
+        or ip_obj.is_loopback
+        or ip_obj.is_link_local
+        or ip_obj.is_multicast
+        or ip_obj.is_reserved
+        or ip_obj.is_unspecified
+    ):
+        return "a private/reserved address"
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Retry classification
+# ---------------------------------------------------------------------------
+
+_REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+
+
+def classify_fetch_error(exc: BaseException) -> RetryDecision:
+    """Transitório: timeout, falha de conexão, HTTP 408/425/429/5xx.
+
+    Erros de TLS, 4xx de input, SSRF e limite de tamanho não são re-tentados.
+    """
+    if isinstance(exc, requests.exceptions.SSLError):
+        return RetryDecision(retryable=False)
+    if isinstance(exc, (requests.Timeout, requests.ConnectionError)):
+        return RetryDecision(retryable=True)
+    if isinstance(exc, requests.HTTPError) and exc.response is not None:
+        status = exc.response.status_code
+        if status in TRANSIENT_HTTP_STATUSES:
+            retry_after = parse_retry_after(exc.response.headers.get("Retry-After"))
+            return RetryDecision(retryable=True, retry_after=retry_after)
+    return RetryDecision(retryable=False)
+
+
+def fetch_retry_policy() -> RetryPolicy:
+    return RetryPolicy(
+        max_attempts=max(1, config.scraping.max_retries + 1),
+        base_delay=config.scraping.retry_delay,
+        max_delay=config.scraping.retry_max_delay,
+        total_timeout=config.scraping.total_timeout,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -112,9 +177,16 @@ def _check_ssrf(url: str) -> None:
 class WebScraper:
     """HTTP-based article extractor with SSRF protection and size limits."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        retry_policy: RetryPolicy | None = None,
+        sleep=time.sleep,
+    ) -> None:
         self.session = self._build_session()
         self._mem_cache: dict[str, dict] = {}
+        self._retry_policy = retry_policy
+        self._sleep = sleep
 
     # ------------------------------------------------------------------
     # Public API
@@ -238,81 +310,90 @@ class WebScraper:
 
     def _build_session(self) -> requests.Session:
         session = requests.Session()
-        retry_strategy = Retry(
-            total=config.scraping.max_retries,
-            status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["GET", "HEAD"],
-            backoff_factor=config.scraping.backoff_factor,
-            respect_retry_after_header=True,
-        )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
+        # Sem retry no urllib3: a política única (modules.retry) fica em _fetch,
+        # evitando tentativas multiplicadas (urllib3 x tenacity).
+        adapter = HTTPAdapter(max_retries=0)
         session.mount("http://", adapter)
         session.mount("https://", adapter)
         return session
 
     def _fetch(self, url: str, headers: dict[str, str]) -> requests.Response:
-        """Perform the HTTP GET with circuit breaker, Tenacity retries, and content-size guard."""
+        """GET com circuit breaker, retry exponencial + jitter e limite de tamanho.
+
+        Re-tenta apenas erros transitórios (ver ``classify_fetch_error``),
+        respeita ``Retry-After``, ``max_retries`` e ``total_timeout``.
+        """
         hostname = urlparse(url).hostname or url
 
         # Circuit breaker check — fail fast if the host is known-broken
         if circuit_breaker.is_open(hostname):
             raise CircuitOpenError(hostname) from None
 
-        @retry(
-            retry=retry_if_exception_type((requests.ConnectionError, requests.Timeout)),
-            stop=stop_after_attempt(config.scraping.max_retries + 1),
-            wait=wait_exponential(
-                multiplier=config.scraping.retry_delay,
-                min=config.scraping.retry_delay,
-                max=config.scraping.retry_delay * (config.scraping.backoff_factor**3),
-            ),
-            reraise=True,
-        )
-        def _do_fetch() -> requests.Response:
+        try:
+            response = retry_call(
+                lambda remaining: self._fetch_once(url, headers, remaining),
+                policy=self._retry_policy or fetch_retry_policy(),
+                classify=classify_fetch_error,
+                sleep=self._sleep,
+                description=f"GET {hostname}",
+            )
+        except Exception as exc:
+            # Só falhas transitórias contam para o circuit breaker; um 404 ou
+            # URL bloqueada não indica host indisponível.
+            if isinstance(exc, RetryBudgetExceeded) or classify_fetch_error(exc).retryable:
+                circuit_breaker.record_failure(hostname)
+                logger.warning("Fetch failed for %s — circuit failure recorded: %s", url, exc)
+            raise
+        circuit_breaker.record_success(hostname)
+        return response
+
+    def _fetch_once(self, url: str, headers: dict[str, str], remaining: float) -> requests.Response:
+        """Uma tentativa: segue redirects manualmente revalidando SSRF a cada salto."""
+        timeout = max(1.0, min(float(config.scraping.timeout), remaining))
+        current = url
+        for _hop in range(config.scraping.max_redirects + 1):
+            _check_ssrf(current)
             # stream=True lets us check Content-Length before downloading body
             response = self.session.get(
-                url,
+                current,
                 headers=headers,
-                timeout=config.scraping.timeout,
+                timeout=timeout,
                 stream=True,
                 verify=True,  # SSL verification always on
+                allow_redirects=False,
             )
+            location = response.headers.get("Location")
+            if response.status_code in _REDIRECT_STATUSES and location:
+                response.close()
+                current = urljoin(current, location)
+                continue
+
             response.raise_for_status()
+            return self._read_capped(response)
 
-            # Content-size guard
-            content_length = int(response.headers.get("Content-Length", 0))
-            if content_length > config.scraping.max_content_bytes:
-                raise ValueError(
-                    f"Response too large: {content_length} bytes "
-                    f"(limit {config.scraping.max_content_bytes})."
-                )
+        raise ValueError(f"Too many redirects (> {config.scraping.max_redirects}) for {url!r}.")
 
-            # Read body with size cap
-            chunks = []
-            total = 0
-            for chunk in response.iter_content(chunk_size=65536):
-                total += len(chunk)
-                if total > config.scraping.max_content_bytes:
-                    raise ValueError(
-                        f"Response body exceeded {config.scraping.max_content_bytes} bytes."
-                    )
-                chunks.append(chunk)
-            response._content = b"".join(chunks)
-            return response
-
+    @staticmethod
+    def _read_capped(response: requests.Response) -> requests.Response:
+        limit = config.scraping.max_content_bytes
         try:
-            response = _do_fetch()
-            circuit_breaker.record_success(hostname)
-            return response
-        except CircuitOpenError:
-            raise
-        except (requests.ConnectionError, requests.Timeout) as exc:
-            circuit_breaker.record_failure(hostname)
-            logger.warning("All retries exhausted for %s — circuit failure recorded: %s", url, exc)
-            raise
-        except Exception:
-            circuit_breaker.record_failure(hostname)
-            raise
+            content_length = int(response.headers.get("Content-Length", 0) or 0)
+        except ValueError:
+            content_length = 0
+        if content_length > limit:
+            response.close()
+            raise ValueError(f"Response too large: {content_length} bytes (limit {limit}).")
+
+        chunks = []
+        total = 0
+        for chunk in response.iter_content(chunk_size=65536):
+            total += len(chunk)
+            if total > limit:
+                response.close()
+                raise ValueError(f"Response body exceeded {limit} bytes.")
+            chunks.append(chunk)
+        response._content = b"".join(chunks)
+        return response
 
     def _scrape_via_wayback(self, url: str) -> dict:
         """Fetch article from Wayback Machine when direct access is blocked (403).
@@ -320,15 +401,9 @@ class WebScraper:
         Queries the Wayback availability API, retrieves the most recent snapshot,
         and extracts content using the same pipeline as a direct fetch.
         """
-        availability_url = f"https://archive.org/wayback/available?url={url}"
+        availability_url = f"https://archive.org/wayback/available?url={quote(url, safe='')}"
         try:
-            api_resp = requests.get(
-                availability_url,
-                timeout=15,
-                verify=True,
-                headers={"User-Agent": config.scraping.user_agents[0]},
-            )
-            api_resp.raise_for_status()
+            api_resp = self._fetch(availability_url, {"User-Agent": config.scraping.user_agents[0]})
             snapshot = api_resp.json().get("archived_snapshots", {}).get("closest", {})
         except Exception as exc:
             raise ValueError(
@@ -344,16 +419,17 @@ class WebScraper:
                 "acesso a este conteúdo via conhecimento prévio."
             )
 
-        snapshot_url = snapshot["url"]
+        snapshot_url = str(snapshot.get("url", ""))
+        snap_host = (urlparse(snapshot_url).hostname or "").lower()
+        if snap_host != "archive.org" and not snap_host.endswith(".archive.org"):
+            raise ValueError(f"Unexpected Wayback snapshot host: {snap_host!r}")
         logger.info("Wayback snapshot found: %s", snapshot_url)
 
-        snap_resp = requests.get(
+        # Mesmo caminho do fetch direto: SSRF por salto, limite de tamanho e retry.
+        snap_resp = self._fetch(
             snapshot_url,
-            timeout=config.scraping.timeout,
-            verify=True,
-            headers={**dict(config.scraping.headers), "User-Agent": config.scraping.user_agents[0]},
+            {**dict(config.scraping.headers), "User-Agent": config.scraping.user_agents[0]},
         )
-        snap_resp.raise_for_status()
 
         soup = BeautifulSoup(snap_resp.text, "html.parser")
         content_data = self._extract_content(soup, url)
@@ -553,7 +629,7 @@ class WebScraper:
             method = "paragraph_extraction"
 
         if not content or len(content.strip()) < 100:
-            content = self._extract_with_newspaper(url)
+            content = self._extract_with_newspaper(url, html)
             method = "newspaper4k"
 
         if not content or len(content.strip()) < 50:
@@ -610,12 +686,17 @@ class WebScraper:
         ]
         return " ".join(parts)
 
-    def _extract_with_newspaper(self, url: str) -> str:
+    def _extract_with_newspaper(self, url: str, html: str) -> str:
+        """Parse com newspaper4k sobre o HTML já baixado.
+
+        Não deixa o newspaper fazer um segundo download: isso seguiria
+        redirects sem a validação SSRF por salto e sem limite de tamanho.
+        """
         try:
             from newspaper import Article  # type: ignore[import]
 
             article = Article(url)
-            article.download()
+            article.download(input_html=html)
             article.parse()
             return article.text
         except ImportError:

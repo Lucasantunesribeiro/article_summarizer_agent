@@ -66,14 +66,16 @@ class TestSSRFBlocking:
 
     # --- Allowed (public internet) ---
 
-    def test_public_https_allowed(self):
-        # Should NOT raise — example.com is a public domain
+    # DNS falso (fixture public_dns): os testes não dependem de rede.
+
+    def test_public_https_allowed(self, public_dns):
+        # Should NOT raise — example.com resolves to a public address
         _check_ssrf("https://example.com/article")
 
-    def test_public_http_allowed(self):
+    def test_public_http_allowed(self, public_dns):
         _check_ssrf("http://example.com/")
 
-    def test_public_with_path_and_query_allowed(self):
+    def test_public_with_path_and_query_allowed(self, public_dns):
         _check_ssrf("https://news.ycombinator.com/item?id=12345")
 
 

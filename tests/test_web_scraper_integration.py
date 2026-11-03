@@ -21,7 +21,7 @@ SAMPLE_HTML = """
 
 
 @pytest.fixture
-def mock_http(monkeypatch):
+def mock_http(monkeypatch, public_dns):
     """Monkeypatch requests.Session.get to return sample HTML."""
     import requests
 
@@ -34,6 +34,9 @@ def mock_http(monkeypatch):
         url = "https://example.com/article"
 
         def raise_for_status(self):
+            pass
+
+        def close(self):
             pass
 
         def iter_content(self, chunk_size=65536):

@@ -32,6 +32,12 @@ class ScrapingConfig:
     max_retries: int = int(os.getenv("MAX_RETRIES_SCRAPING", "3"))
     retry_delay: float = 2.0
     backoff_factor: float = 2.0
+    # Teto de espera entre tentativas e orçamento total (todas as tentativas +
+    # esperas) de um fetch, em segundos.
+    retry_max_delay: float = float(os.getenv("SCRAPING_RETRY_MAX_DELAY", "16"))
+    total_timeout: float = float(os.getenv("SCRAPING_TOTAL_TIMEOUT", "90"))
+    # Redirects são seguidos manualmente para revalidar SSRF a cada salto.
+    max_redirects: int = int(os.getenv("SCRAPING_MAX_REDIRECTS", "5"))
 
     # Hard limit on response body to prevent memory exhaustion (bytes)
     max_content_bytes: int = 10 * 1024 * 1024  # 10 MB
@@ -39,12 +45,19 @@ class ScrapingConfig:
     # SSRF: private / link-local / metadata CIDRs blocked before DNS lookup
     blocked_cidrs: list[str] = field(
         default_factory=lambda: [
+            "0.0.0.0/8",  # "this network" (0.0.0.0 alcança o host local)
             "127.0.0.0/8",  # loopback
             "10.0.0.0/8",  # RFC-1918 private
             "172.16.0.0/12",  # RFC-1918 private
             "192.168.0.0/16",  # RFC-1918 private
             "169.254.0.0/16",  # link-local / EC2 metadata
             "100.64.0.0/10",  # CGNAT / shared address space
+            "192.0.0.0/24",  # IETF protocol assignments
+            "198.18.0.0/15",  # benchmarking
+            "224.0.0.0/4",  # multicast
+            "240.0.0.0/4",  # reservado / broadcast
+            "::/128",  # IPv6 unspecified
+            "64:ff9b::/96",  # NAT64 (pode mapear para IPv4 interno)
             "::1/128",  # IPv6 loopback
             "fc00::/7",  # IPv6 unique local
             "fe80::/10",  # IPv6 link-local
