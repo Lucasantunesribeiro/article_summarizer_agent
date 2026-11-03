@@ -16,3 +16,7 @@ outputs
 .cache
 .model_cache
 test_app.sqlite3
+frontend/node_modules
+*.sqlite3
+dev.db
+.env
