@@ -16,11 +16,17 @@ logger = logging.getLogger(__name__)
 class ArticlePipelineRunner:
     """Clean application-facing pipeline runner."""
 
-    def __init__(self, cache_backend: CacheBackend | None = None) -> None:
+    def __init__(
+        self,
+        cache_backend: CacheBackend | None = None,
+        *,
+        web_scraper: WebScraper | None = None,
+        summarizer: Summarizer | None = None,
+    ) -> None:
         self.cache_backend = cache_backend or create_cache_backend(ttl=config.output.cache_ttl)
-        self.web_scraper = WebScraper()
+        self.web_scraper = web_scraper or WebScraper()
         self.text_processor = TextProcessor()
-        self.summarizer = Summarizer()
+        self.summarizer = summarizer or Summarizer()
         self.file_manager = FileManager(cache_backend=self.cache_backend)
 
     def run(
@@ -33,7 +39,10 @@ class ArticlePipelineRunner:
         effective_length = length or config.summarization.summary_length
         start = time.time()
 
-        cached = self.file_manager.load_cached_result(url)
+        # A chave inclui método e tamanho: antes, um resumo extrativo em cache
+        # era devolvido para um pedido generativo (ou de outro tamanho) da mesma URL.
+        cache_key = f"{effective_method}:{effective_length}:{url}"
+        cached = self.file_manager.load_cached_result(cache_key)
         if cached:
             return cached
 
@@ -65,7 +74,7 @@ class ArticlePipelineRunner:
                 "statistics": files["summary_stats"],
                 "timestamp": time.time(),
             }
-            self.file_manager.save_to_cache(url, result)
+            self.file_manager.save_to_cache(cache_key, result)
             return result
         except Exception as exc:
             logger.error("Pipeline failed for %s: %s", url, exc)

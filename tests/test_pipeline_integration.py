@@ -76,11 +76,13 @@ class TestPipelineIntegration:
         assert result["success"] is True
         assert len(result.get("files_created", {})) > 0
 
-    def test_pipeline_handles_generative_fallback(self, mock_scraper):
+    def test_pipeline_handles_generative_fallback(self, mock_scraper, monkeypatch):
         """When Gemini API key is missing, generative falls back to extractive."""
-        import os
+        from config import config
 
-        os.environ.pop("GEMINI_API_KEY", None)
+        # O antigo os.environ.pop não afetava config.gemini.api_key (já lido),
+        # então o teste construía o cliente Gemini real com "test-key".
+        monkeypatch.setattr(config.gemini, "api_key", "")
 
         from main import ArticleSummarizerAgent
 
@@ -88,4 +90,51 @@ class TestPipelineIntegration:
         result = agent.run("https://example.com/ml-article", method="generative", length="short")
         # Should succeed via fallback
         assert result["success"] is True
-        assert result["method_used"] in ("extractive", "generative")
+        assert result["method_used"] == "extractive"
+
+    def test_pipeline_generative_with_fake_llm(self, mock_scraper, monkeypatch, tmp_path):
+        """Modo generativo ponta a ponta com o fake determinístico da porta de LLM."""
+        from config import config
+        from infrastructure.pipeline import ArticlePipelineRunner
+        from modules.llm import FakeLLMClient
+        from modules.llm.fake import DEFAULT_FAKE_SUMMARY
+        from modules.summarizer import Summarizer
+
+        monkeypatch.setattr(config.output, "output_dir", str(tmp_path))
+        monkeypatch.setattr(config.output, "cache_enabled", False)
+        fake = FakeLLMClient()
+        runner = ArticlePipelineRunner(summarizer=Summarizer(llm_client=fake))
+
+        result = runner.run("https://example.com/fake-llm", method="generative", length="long")
+
+        assert result["success"] is True, result
+        assert result["method_used"] == "generative"
+        assert result["summary"] == DEFAULT_FAKE_SUMMARY
+        assert fake.call_count == 1
+        assert "8–10 sentences" in fake.calls[0].user_content  # length repassado ao LLM
+
+    def test_cache_is_keyed_by_method_and_length(self, mock_scraper, monkeypatch, tmp_path):
+        """Resultado extrativo em cache não pode ser devolvido a um pedido generativo."""
+        from config import config
+        from infrastructure.pipeline import ArticlePipelineRunner
+        from modules.cache import FilesystemCacheBackend
+        from modules.llm import FakeLLMClient
+        from modules.summarizer import Summarizer
+
+        monkeypatch.setattr(config.output, "output_dir", str(tmp_path))
+        monkeypatch.setattr(config.output, "cache_enabled", True)
+        fake = FakeLLMClient()
+        runner = ArticlePipelineRunner(
+            cache_backend=FilesystemCacheBackend(cache_dir=str(tmp_path / "cache"), ttl=60),
+            summarizer=Summarizer(llm_client=fake),
+        )
+        url = "https://example.com/cache-key"
+
+        first = runner.run(url, method="extractive", length="short")
+        second = runner.run(url, method="generative", length="short")
+        third = runner.run(url, method="generative", length="short")
+
+        assert first["method_used"] == "extractive"
+        assert second["method_used"] == "generative"
+        assert third["method_used"] == "generative"
+        assert fake.call_count == 1  # terceiro veio do cache da chave generativa
