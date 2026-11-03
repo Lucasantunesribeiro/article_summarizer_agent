@@ -1,16 +1,30 @@
+# Rede interna do compose: os serviços se enxergam pelo nome (postgres, redis,
+# rabbitmq). Estas URLs sobrescrevem as do .env (que apontam para localhost e
+# servem para rodar fora do Docker).
+x-app-env: &app-env
+  DATABASE_URL: postgresql://summarizer:summarizer@postgres:5432/summarizer
+  REDIS_URL: redis://redis:6379/0
+  RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672//
+  CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
+  CELERY_RESULT_BACKEND: redis://redis:6379/2
+
+x-env-file: &env-file
+  - path: .env
+    required: false
+
 services:
   api:
     build: .
     ports:
       - "5000:8080"
-    env_file:
-      - .env
+    env_file: *env-file
     environment:
-      - FLASK_DEBUG=true
-      - PORT=8080
-      - OTEL_ENABLED=true
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
-      - OTEL_SERVICE_NAME=article-summarizer-api
+      <<: *app-env
+      FLASK_DEBUG: "true"
+      PORT: "8080"
+      OTEL_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      OTEL_SERVICE_NAME: article-summarizer-api
     volumes:
       - ./outputs:/app/outputs
       - ./.cache:/app/.cache
@@ -24,10 +38,8 @@ services:
   worker:
     build: .
     command: celery -A celery_app worker --loglevel=info --concurrency=2
-    env_file:
-      - .env
-    environment:
-      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+    env_file: *env-file
+    environment: *app-env
     volumes:
       - ./outputs:/app/outputs
       - ./.cache:/app/.cache
@@ -71,10 +83,8 @@ services:
   beat:
     build: .
     command: celery -A celery_app beat --loglevel=info
-    env_file:
-      - .env
-    environment:
-      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+    env_file: *env-file
+    environment: *app-env
     volumes:
       - ./outputs:/app/outputs
     depends_on:
