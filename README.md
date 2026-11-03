@@ -1,233 +1,168 @@
 # Article Summarizer Agent
 
-Plataforma web para extracao, processamento e sumarizacao de artigos publicos com pipeline assincromo, persistencia relacional, JWT, rate limiting, cache e observabilidade.
-
-## O que o projeto faz
-
-O sistema recebe uma URL publica, extrai o conteudo do artigo, processa o texto, gera um resumo por TF-IDF ou Google Gemini e disponibiliza:
-
-- status assincromo por `task_id`
-- historico persistido em banco
-- download do resultado em `txt`, `md` e `json`
-- painel web server-side
-- API REST documentada em `/apidocs/`
+Aplicação web (Flask) que recebe a URL de um artigo público, extrai o texto, processa e gera um resumo **extrativo** (TF-IDF, local) ou **generativo** (LLM via Google Gemini). O processamento é assíncrono (Celery, com fallback para thread local) e o resultado fica persistido em banco, com download em `txt`, `md` e `json`.
 
 ## Arquitetura
 
-O repositorio foi reorganizado como um monolito modular com separacao explicita de camadas:
+Monólito modular em camadas:
 
-- `presentation/`: Flask app factory e blueprints HTTP/HTML
-- `application/`: commands, queries, handlers e event bus de aplicacao
-- `domain/`: entidades, eventos e contratos de repositorio
-- `infrastructure/`: repositorios SQLAlchemy, auth, container e runtime settings
-- `modules/`: pipeline tecnico de scraping, NLP, cache, rate limiting e secrets rotation
-- `tasks/`: integracao com Celery para processamento assincromo
+- `presentation/`: app factory Flask e blueprints (`api`, `auth`, `web`). O blueprint `web` serve o SPA React compilado em `static/dist/`.
+- `application/`: commands, queries, handlers e event bus interno.
+- `domain/`: entidades, eventos e contratos de repositório.
+- `infrastructure/`: repositórios SQLAlchemy, container de dependências, `ArticlePipelineRunner`, settings de runtime.
+- `modules/`: scraping, NLP, sumarização, porta de LLM, retry, defesa contra prompt injection, cache, rate limiting, circuit breaker.
+- `tasks/`: tasks Celery (sumarização e relay do outbox).
+- `frontend/`: SPA React + Vite + Tailwind (build vai para `static/dist/`).
 
-### Padroes aplicados
-
-- Clean Architecture pragmatica
-  - `app.py` agora e apenas bootstrap do WSGI.
-  - os casos de uso ficam em handlers da camada `application`.
-- CQRS leve
-  - operacoes de escrita usam commands (`SubmitSummarizationCommand`, `UpdateSettingsCommand`)
-  - operacoes de leitura usam queries (`GetTaskStatusQuery`, `GetSettingsQuery`)
-- Event-driven interno
-  - `TaskSubmitted`, `TaskCompleted`, `TaskFailed`, `UserAuthenticated`, `CacheCleared`, `JwtSecretRotated`
-  - submissao publica evento e o dispatcher envia a execucao para Celery ou thread fallback
-- Persistencia versionada
-  - SQLAlchemy 2 + Alembic
-- Runtime settings
-  - configuracoes salvas na tabela `settings` sao aplicadas ao runtime sem reiniciar a aplicacao
-
-## Stack
-
-### Backend
-
-- Python 3.10+
-- Flask
-- Flask-JWT-Extended
-- SQLAlchemy 2
-- Alembic
-- Redis
-- Celery
-- Prometheus client
-- Flasgger / Swagger
-
-### Pipeline
-
-- requests
-- BeautifulSoup4
-- NLTK
-- scikit-learn
-- google-genai
-- tenacity
-
-### Frontend
-
-- Jinja2
-- Bootstrap 5
-- JavaScript vanilla
-
-## Seguranca e confiabilidade
-
-- protecao SSRF antes do scraping
-- JWT por header e cookies
-- CSRF habilitado para fluxos baseados em cookie JWT
-- RBAC real com usuarios persistidos e senha hasheada
-- audit trail para autenticacao, alteracao de settings, limpeza de cache e rotacao de segredo
-- rate limiting separado para submit, auth, polling e rotas administrativas
-- rotacao de segredo JWT com `kid` e grace period
-- headers de seguranca e CSP com nonce
-- circuit breaker e retry para scraping
-
-## Fluxo principal
-
-1. Cliente envia `POST /api/sumarizar`.
-2. A API valida URL, metodo, tamanho e aplica rate limiting.
-3. O handler cria a tarefa, persiste no banco e publica `TaskSubmitted`.
-4. O dispatcher envia para Celery quando disponivel; caso contrario usa thread local.
-5. O pipeline executa scraping, processamento, sumarizacao e persistencia dos artefatos.
-6. O handler atualiza a tarefa e publica `TaskCompleted` ou `TaskFailed`.
-7. O cliente consulta `GET /api/tarefa/<task_id>` ate a conclusao.
-
-## Estrutura do repositorio
-
-```text
-article_summarizer_agent/
-├── app.py
-├── main.py
-├── application/
-├── domain/
-├── infrastructure/
-├── modules/
-├── presentation/
-├── tasks/
-├── templates/
-├── static/
-├── alembic/
-├── tests/
-├── docker-compose.yml
-├── Dockerfile
-├── requirements.txt
-└── requirements-dev.txt
+```mermaid
+flowchart LR
+    U[Navegador / cliente HTTP] --> API[Flask<br/>presentation/]
+    API --> H[Handlers<br/>application/]
+    H --> DB[(PostgreSQL ou SQLite<br/>SQLAlchemy + Alembic)]
+    H --> OB[(tabela outbox)]
+    H --> D{Dispatcher}
+    D -->|Celery disponível| MQ[[RabbitMQ]] --> W[Worker Celery]
+    D -->|fallback| T[Thread local]
+    W --> P[ArticlePipelineRunner]
+    T --> P
+    P --> S[WebScraper<br/>SSRF por salto + retry]
+    S --> NET((Internet))
+    P --> TP[TextProcessor<br/>NLTK]
+    P --> SUM[Summarizer]
+    SUM --> EX[Extrativo TF-IDF]
+    SUM --> LLM[LLMSummarizer<br/>prompt_safety + retry]
+    LLM --> PORT{{Porta LLMClient}}
+    PORT --> GEM[GeminiLLMClient]
+    PORT -.testes.-> FAKE[FakeLLMClient]
+    P --> FM[FileManager<br/>outputs/ + cache Redis ou disco]
+    BEAT[Celery beat] --> RELAY[outbox_relay] --> MQ
 ```
 
-## Execucao local
+### Fluxo de uma sumarização
 
-### 1. Instalar dependencias
+1. `POST /api/sumarizar` valida a URL (esquema, SSRF), aplica rate limiting e cria a tarefa no banco.
+2. O handler publica `TaskSubmitted`; o dispatcher envia para o Celery quando o broker responde, senão roda numa thread.
+3. `ArticlePipelineRunner` consulta o cache (chave = método + tamanho + URL), faz o scraping, processa o texto, sumariza e grava os arquivos.
+4. O cliente consulta `GET /api/tarefa/<task_id>` até o status final.
 
-Linux/macOS:
+### Confiabilidade e segurança do pipeline
+
+- **Fetch do artigo** (`modules/web_scraper.py`): redirects seguidos manualmente com validação SSRF em cada salto; bloqueio de faixas privadas, loopback, link-local/metadata, CGNAT, multicast, reservadas, NAT64 e IPv4 embutido em IPv6; limite de tamanho do corpo; circuit breaker por host.
+- **Retry** (`modules/retry.py`): uma única política para fetch e LLM. Backoff exponencial com *full jitter*, só para erros transitórios (timeout, conexão, HTTP 408/425/429/5xx), respeitando `Retry-After`, com limite de tentativas e orçamento total de tempo. 4xx de input e erros de TLS falham na primeira tentativa.
+- **LLM atrás de uma porta** (`modules/llm/`): `LLMSummarizer` depende só de `LLMClient`. Em produção usa `GeminiLLMClient` (retry interno do SDK desligado); nos testes usa `FakeLLMClient`, determinístico e sem rede.
+- **Prompt injection** (`modules/prompt_safety.py`): o artigo é tratado como dado não confiável. É higienizado (controle, zero-width, bidi, *tag characters*), truncado, delimitado por tag com nonce aleatório e enviado separado da instrução de sistema, que manda ignorar ordens contidas no texto. A saída precisa ser JSON `{"summary": str}` e é rejeitada se trouxer HTML, URLs que não estão no artigo, o delimitador ou trechos do prompt de sistema. Resposta rejeitada cai no resumo extrativo.
+- **API**: JWT (header e cookie, com CSRF para cookie), RBAC com usuários persistidos, rate limiting por grupo de rota, rotação do segredo JWT, cabeçalhos de segurança.
+
+## Como rodar
+
+### Local (Python 3.10+)
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate          # Windows: .\.venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
-```
-
-Windows PowerShell:
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements-dev.txt
-```
-
-### 2. Configurar ambiente
-
-```bash
-cp .env.example .env
-```
-
-Variaveis mais importantes:
-
-- `SECRET_KEY`
-- `DATABASE_URL`
-- `REDIS_URL`
-- `ADMIN_USER`
-- `ADMIN_PASSWORD`
-- `GEMINI_API_KEY` (somente modo generative)
-
-### 3. Aplicar migrations
-
-```bash
-./.venv/Scripts/python -m alembic upgrade head
-```
-
-### 4. Rodar a aplicacao
-
-Linux/macOS:
-
-```bash
+python -c "import nltk; [nltk.download(p, quiet=True) for p in ('punkt','punkt_tab','stopwords','wordnet')]"
+cp .env.example .env               # ajuste os valores
 FLASK_DEBUG=true python app.py
 ```
 
-Windows PowerShell:
+Sem `DATABASE_URL`, o app usa SQLite (`./dev.db`). As migrations Alembic rodam na inicialização (desligue com `SKIP_DB_MIGRATIONS_ON_STARTUP=true` e rode `python -m alembic upgrade head`). Sem `REDIS_URL`, cache e rate limiting usam memória/disco. Sem broker Celery acessível, as tarefas rodam em thread.
 
-```powershell
-./scripts/dev.ps1 -Task run
-```
-
-### 5. Rodar com Docker Compose
+Frontend (opcional, para servir a interface em `/`):
 
 ```bash
+cd frontend && npm install && npm run build   # gera static/dist/
+```
+
+Também há uma CLI: `python main.py --url <url> --method extractive --length short`.
+
+### Docker Compose
+
+```bash
+cp .env.example .env    # opcional; sem .env o compose usa os valores internos
 docker compose up --build
 ```
 
-## Comandos uteis
+Sobe `api` (porta 5000), `worker` e `beat` (Celery), PostgreSQL, Redis, RabbitMQ (UI em 15672), Flower (5555), Prometheus (9090), Grafana (3001) e Jaeger (16686). As URLs de banco, Redis e RabbitMQ dos serviços da aplicação são definidas no próprio `docker-compose.yml` com os hostnames da rede do compose.
 
-```bash
-ruff check .
-ruff format .
-pytest tests -q
-pytest tests --cov --cov-report=term-missing -q
-```
+## Variáveis de ambiente
 
-Atalhos:
+Lista completa com valores de exemplo em [`.env.example`](.env.example).
 
-- `make setup`
-- `make test`
-- `make test-cov`
-- `make db-upgrade`
-- `./scripts/dev.ps1 -Task test`
-
-## API principal
-
-| Metodo | Endpoint | Descricao |
+| Variável | Padrão | Descrição |
 |---|---|---|
-| `POST` | `/api/sumarizar` | Cria uma tarefa de sumarizacao |
-| `GET` | `/api/tarefa/<task_id>` | Consulta status e resultado |
+| `SECRET_KEY` | — | Obrigatória com `FLASK_DEBUG=false`. Assina sessão e JWT. |
+| `FLASK_DEBUG` | `false` | `true` permite chave efêmera e cookies sem `Secure`. |
+| `DATABASE_URL` | `sqlite:///./dev.db` | URL SQLAlchemy (PostgreSQL em produção). |
+| `REDIS_URL` | vazio | Cache, rate limiting e segredos JWT compartilhados. Vazio = memória/disco. |
+| `CELERY_BROKER_URL` / `RABBITMQ_URL` | `amqp://guest:guest@localhost:5672//` | Broker Celery e destino do outbox. |
+| `CELERY_RESULT_BACKEND` | `redis://localhost:6379/2` | Backend de resultados Celery. |
+| `ADMIN_USER` / `ADMIN_PASSWORD` | `admin` / — | Usuário admin semeado no banco. |
+| `JWT_SECRET_KEY`, `JWT_EXPIRES_HOURS`, `JWT_COOKIE_CSRF_PROTECT` | — / `24` / `true` | Configuração do JWT. |
+| `CORS_ORIGINS` | — | Origens permitidas (ex.: Vite em `http://localhost:5173`). |
+| `SUMMARIZATION_METHOD` | `extractive` | `extractive` ou `generative`. |
+| `SUMMARY_LENGTH` | `medium` | `short`, `medium` ou `long`. |
+| `GEMINI_API_KEY` | vazio | Necessária só no modo generativo. Sem ela, cai no extrativo. |
+| `GEMINI_MODEL_ID` | `gemini-2.5-flash-preview-05-20` | Modelo Gemini. |
+| `GEMINI_TIMEOUT` | `30` | Timeout por requisição ao LLM (s). |
+| `GEMINI_MAX_ATTEMPTS` | `3` | Tentativas para erros transitórios do LLM. |
+| `GEMINI_RETRY_BASE_DELAY` / `GEMINI_RETRY_MAX_DELAY` | `1` / `20` | Base e teto do backoff (s). |
+| `GEMINI_TOTAL_TIMEOUT` | `90` | Orçamento total de uma sumarização generativa (s). |
+| `GEMINI_MAX_SUMMARY_CHARS` | `4000` | Resumo maior é rejeitado pela validação de saída. |
+| `TIMEOUT_SCRAPING` | `30` | Timeout por requisição do fetch (s). |
+| `MAX_RETRIES_SCRAPING` | `3` | Retentativas do fetch (total = 1 + retries). |
+| `SCRAPING_RETRY_MAX_DELAY` | `16` | Teto do backoff do fetch (s). |
+| `SCRAPING_TOTAL_TIMEOUT` | `90` | Orçamento total do fetch, incluindo esperas (s). |
+| `SCRAPING_MAX_REDIRECTS` | `5` | Redirects seguidos (cada um revalidado contra SSRF). |
+| `CIRCUIT_BREAKER_THRESHOLD` / `CIRCUIT_BREAKER_TIMEOUT` | `3` / `120` | Falhas para abrir o circuito por host e tempo aberto (s). |
+| `CACHE_ENABLED` / `CACHE_TTL` / `OUTPUT_DIR` | `true` / `86400` / `outputs` | Cache de resultados e diretório de saída. |
+| `RATE_LIMIT_*`, `AUTH_RATE_LIMIT_*`, `POLL_RATE_LIMIT_*`, `ADMIN_RATE_LIMIT_*` | ver `.env.example` | Limites por grupo de rota. |
+| `METRICS_TOKEN` | vazio | Token exigido em `/metrics`, se definido. |
+| `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` | `false` | Tracing OpenTelemetry. |
+| `LOG_LEVEL` | `INFO` | Nível de log. |
+
+## API
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `POST` | `/api/sumarizar` | Cria uma tarefa de sumarização |
+| `GET` | `/api/tarefa/<task_id>` | Status e resultado |
 | `GET` | `/api/download/<task_id>/<fmt>` | Baixa `txt`, `md` ou `json` |
-| `GET` | `/api/status` | Status tecnico do pipeline |
-| `GET` | `/api/estatisticas` | Estatisticas agregadas de tarefas |
-| `POST` | `/api/auth/login` | Login administrativo |
-| `GET` | `/api/auth/me` | Identidade do usuario autenticado |
-| `GET` | `/api/settings` | Le configuracoes persistidas |
-| `PUT` | `/api/settings` | Atualiza configuracoes persistidas |
-| `POST` | `/api/limpar-cache` | Limpa cache com JWT admin |
-| `POST` | `/api/admin/rotate-secret` | Rotaciona segredo JWT |
-| `GET` | `/health` | Health check |
-| `GET` | `/metrics` | Metricas Prometheus |
+| `GET` | `/api/historico` | Histórico de tarefas |
+| `GET` | `/api/status` | Status técnico do pipeline |
+| `GET` | `/api/estatisticas` | Estatísticas agregadas |
+| `POST` | `/api/auth/login`, `/api/auth/refresh`, `/api/auth/logout`, `/api/auth/register` | Autenticação |
+| `GET` | `/api/auth/me` | Usuário autenticado |
+| `GET`/`PUT` | `/api/settings` | Lê/atualiza settings persistidas (admin) |
+| `POST` | `/api/limpar-cache` | Limpa cache (admin) |
+| `POST` | `/api/admin/rotate-secret` | Rotaciona o segredo JWT (admin) |
+| `GET` | `/health`, `/metrics` | Health check e métricas Prometheus |
+
+Documentação Swagger (Flasgger) em `/apidocs/`.
 
 ## Testes
 
-Estado atual da suite:
+```bash
+pip install -r requirements-dev.txt
+pytest -q
+ruff check . && ruff format --check .
+```
 
-- `96 passed, 1 skipped`
-- cobertura total: `76.89%`
-- lint: `ruff check .` verde
+- Nenhum teste chama um LLM real nem precisa de `GEMINI_API_KEY`: `tests/conftest.py` zera a chave, faz o adaptador Gemini falhar se for usado e bloqueia conexões de rede que não sejam loopback. O modo generativo é testado com `FakeLLMClient`, inclusive falhas transitórias simuladas e um artigo malicioso (`tests/test_llm_summarizer.py`, `tests/test_prompt_safety.py`).
+- Retry e SSRF do fetch são testados com sessão HTTP roteirizada e DNS falso (`tests/test_retry.py`, `tests/test_fetch_retry.py`, `tests/test_ssrf.py`).
+- `tests/test_db_integration.py` usa `pytest-postgresql`, que sobe um PostgreSQL temporário com o `pg_ctl` da máquina. Sem PostgreSQL instalado (ou rodando como root), esses testes dão erro no setup.
 
-Os testes cobrem:
+A CI (`.github/workflows/ci.yml`) roda lint, testes e `docker build` em pull requests e em push para `main`.
 
-- API e autorizacao
-- settings e RBAC
-- cache e secrets rotation
-- sumarizador e processador de texto
-- guardas SSRF
-- integracao do pipeline
+## Decisões de arquitetura
 
-## Observacoes de produto
+ADRs em [`docs/adr/`](docs/adr/).
 
-- o frontend e server-side com Jinja2, nao React
-- o broker padrao da stack assincroma e Redis/Celery
-- o event bus atual e interno ao monolito; nao ha outbox nem integracao entre servicos externos
+## Limitações conhecidas
 
+- A defesa contra prompt injection reduz o risco, mas não o elimina: um modelo ainda pode ser influenciado pelo texto do artigo de formas que a validação de saída não detecta (ex.: resumo enviesado sem URL, HTML ou vazamento de prompt).
+- A validação SSRF resolve o DNS antes da requisição, mas o `requests` resolve de novo ao conectar. Um DNS com TTL zero (*DNS rebinding*) ainda pode trocar o IP entre a checagem e a conexão.
+- A imagem Docker não compila o frontend: sem `static/dist/`, `/` responde 503 com uma mensagem, e só a API funciona.
+- O cache em disco usa MD5 da chave apenas como nome de arquivo (não é uso criptográfico).
+- O event bus é interno ao processo; o outbox publica eventos no RabbitMQ, mas não há consumidores no repositório.
+- O modo generativo só tem adaptador para Gemini.
